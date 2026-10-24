@@ -9,11 +9,12 @@
 -- down, 9 loose ones carried; breaking a ten).
 -- Grouping by ten, then reading a number as tens and ones (the Singapore
 -- method's bundles of ten). Levels:
---   1  10 to 19: make the box yourself; the sign shows the number and the
---      boxes and eggs in pictures
---   2  20 to 59: some full boxes lie about, but one must be made; pictures
---   3  20 to 99: the sign shows the number only (the pictures come back after
---      a wrong try)
+--   1  10 to 19; the sign shows the number and the boxes and eggs in pictures
+--   2  20 to 59, pictures
+--   3  20 to 99, the number only (the pictures come back after a wrong try)
+-- Full boxes lie about at every level (one or two more than needed): walk on
+-- one to pick it up, so a ten is one step, not ten. Loose eggs too (a few
+-- more than the ones), to fill a box yourself if you like.
 -- 3 deliveries make a round.
 -- world.lua calls the hooks below at the right moments (see MODES there).
 
@@ -87,9 +88,8 @@ local function newDelivery()
     S.target, S.tens, S.ones = target, tens, ones
     S.items, S.phase, S.t, S.nope, S.help, S.counted, S.sum = {}, "play", 0, 0, level < 3, 0, nil
     local boxes, eggs
-    if level == 1 then boxes, eggs = 0, target + 5
-    elseif level == 2 then boxes, eggs = tens - 1, 10 + ones + 4
-    else boxes, eggs = tens + 1, ones + 5 end
+    boxes = tens + (level == 1 and 1 or 2)
+    eggs = ones + (level == 1 and 6 or 5)
     for _ = 1, boxes do
         local x, y = spot()
         table.insert(S.items, { kind = "box", x = x, y = y })

@@ -132,11 +132,14 @@ breaking a ten). What a kid carries shows above their head, in boxes and
 eggs. Tens and ones to 100 (the Singapore method's bundles of ten).
 3 deliveries make a round.
 
-- **Level 1**: 10 to 19, make the box yourself; the sign shows the number
-  and the same in boxes and eggs.
-- **Level 2**: 20 to 59, some full boxes lie about but one must be made.
-- **Level 3**: 20 to 99, the sign shows the number only (the boxes and eggs
-  come back after a wrong try).
+Full boxes lie about at every level (one or two more than needed): walk on
+one to pick it up. Loose eggs too, to fill a box yourself.
+
+- **Level 1**: 10 to 19; the sign shows the number and the same in boxes
+  and eggs.
+- **Level 2**: 20 to 59, with the pictures.
+- **Level 3**: 20 to 99, the number only (the pictures come back after a
+  wrong try).
 
 The games share the meadow, the kids and the animals (`world.lua`, which is
 also the pens game); the train and Peekaboo add their own rules

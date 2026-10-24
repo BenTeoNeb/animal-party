@@ -62,6 +62,12 @@ function sfx.load()
         S.chirp(b, 0.0, 950, 720, 0.18, 0.45, "sine", 0.05, 0.7)
         S.chirp(b, 0.22, 900, 700, 0.12, 0.3, "sine", 0.05, 0.7)
     end, 0.45, 0.6, 0.15), 0.06)
+    add("toot", make(function(b)                  -- the train's whistle: "toot toooot!"
+        S.chirp(b, 0.0, 740, 760, 0.18, 0.5, "sine", 0.01)
+        S.chirp(b, 0.0, 932, 950, 0.18, 0.35, "sine", 0.01)
+        S.chirp(b, 0.28, 740, 720, 0.6, 0.5, "sine", 0.01)
+        S.chirp(b, 0.28, 932, 900, 0.6, 0.35, "sine", 0.01)
+    end, 1.0, 0.7, 0.2), 0.02)
     add("grab", make(function(b)                  -- (any other) a happy "pop"
         S.chirp(b, 0, 500, 1100, 0.1, 0.5, "sine", nil, 0.5)
     end, 0.2, 0.6, 0.1), 0.06)

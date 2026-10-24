@@ -94,6 +94,11 @@ local HEIGHTS = {
     arbre = 125, maison = 80, volcan = 230,
 }
 
+-- How tall an animal is drawn at size 1.
+function art.height(kind)
+    return HEIGHTS[kind] or 46
+end
+
 -- The tree species (images/<name>.png, and <name>_brule.png once the lava got
 -- them), with how tall each one is drawn.
 art.TREES = {

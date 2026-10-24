@@ -28,6 +28,10 @@ local W, H = 1280, 720
 local g = love.graphics
 local state = "select"
 local level = 1           -- 1 count, 2 add, 3 take away (chosen in the menu)
+local mode = "fete"       -- "fete" (the pens) or "train" (chosen in the menu, or up/down)
+local function levelName()
+    return T(mode == "train" and "level_train_" .. level or "level_" .. level)
+end
 local fonts = {}
 
 -- Character select: each player picks Rami, Zina or Lila.
@@ -59,7 +63,7 @@ local function startIfReady()
     for p = 1, 2 do
         if pick[p].joined then table.insert(chosen, { player = p, kid = pick[p].choice }) end
     end
-    world.start(chosen, level)
+    world.start(chosen, level, mode)
     state = "play"
 end
 
@@ -71,7 +75,10 @@ local function selectAction(p, action)
         sfx.play("ready")
         return
     end
-    if action == "left" and not me.ready then
+    if action == "up" or action == "down" then        -- switch the game: pens / train
+        mode = mode == "fete" and "train" or "fete"
+        sfx.play("select")
+    elseif action == "left" and not me.ready then
         moveChoice(p, -1)
     elseif action == "right" and not me.ready then
         moveChoice(p, 1)
@@ -94,6 +101,7 @@ local menuStickOut = {}
 local function menuItems()
     local items = { "resume" }
     if state == "play" then table.insert(items, "to_title") end
+    if state == "select" then table.insert(items, "mode") end
     if state == "select" then table.insert(items, "level") end
     table.insert(items, "fullscreen")
     table.insert(items, "sound")
@@ -103,7 +111,8 @@ local function menuItems()
 end
 
 local function menuLabel(item)
-    if item == "level" then return T("level_item", T("level_" .. level)) end
+    if item == "mode" then return T("mode_item", T("mode_" .. mode)) end
+    if item == "level" then return T("level_item", levelName()) end
     if item == "fullscreen" then return T(love.window.getFullscreen() and "fullscreen_on" or "fullscreen_off") end
     if item == "sound" then return T(soundOn and "sound_on" or "sound_off") end
     if item == "language" then return T("language_item") end
@@ -125,6 +134,8 @@ local function menuChoose()
         menu = nil
         resetSelect()
         state = "select"
+    elseif item == "mode" then
+        mode = mode == "fete" and "train" or "fete"
     elseif item == "level" then
         level = level % 3 + 1
     elseif item == "fullscreen" then
@@ -301,7 +312,28 @@ local function drawSelect()
     -- the level (changed in the menu)
     g.setColor(0.2, 0.12, 0.08, 0.6)
     g.rectangle("fill", 14, 100, 250, 38, 12)
-    outlined(T("level_" .. level), fonts.small, 14, 108, 250, { 0.6, 0.9, 1 })
+    outlined(levelName(), fonts.small, 14, 108, 250, { 0.6, 0.9, 1 })
+    -- the game (pens or train), top right, with a little picture; up/down switches it
+    g.setColor(0.2, 0.12, 0.08, 0.6)
+    g.rectangle("fill", 1000, 12, 266, 82, 14)
+    if mode == "fete" then
+        art.animal("poule", 1046, 84, 1, 1.0, false)
+        outlined("3", fonts.big, 1066, 36, 40, { 1, 0.9, 0.4 })
+    else
+        for i = 0, 2 do      -- a little train: two wagons and the engine
+            local c = ({ { 0.4, 0.75, 0.35 }, { 1, 0.78, 0.2 }, { 0.3, 0.55, 0.9 } })[i + 1]
+            g.setColor(0.23, 0.14, 0.09)
+            g.rectangle("fill", 1018 + i * 28, 56 - (i == 2 and 12 or 0), 26, 24 + (i == 2 and 12 or 0), 4)
+            g.setColor(c)
+            g.rectangle("fill", 1020 + i * 28, 58 - (i == 2 and 12 or 0), 22, 20 + (i == 2 and 12 or 0), 3)
+            g.setColor(0.23, 0.14, 0.09)
+            g.circle("fill", 1026 + i * 28, 82, 5)
+            g.circle("fill", 1038 + i * 28, 82, 5)
+        end
+    end
+    outlined(T("mode_" .. mode), fonts.mid, 1108, 34, 150, { 1, 0.95, 0.6 })
+    outlined("^", fonts.small, 1236, 12, 24, { 0.8, 0.8, 0.8 })
+    outlined("v", fonts.small, 1236, 62, 24, { 0.8, 0.8, 0.8 })
     -- how to play, with the buttons as icons
     art.hint({ "@dpad", T("choose_short"), "   ", "@a", T("go"), "   ", "@menu", T("menu_hint") },
         W / 2, 624, fonts.small)

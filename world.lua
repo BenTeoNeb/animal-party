@@ -19,6 +19,7 @@ if not hasJournal then
 end
 local lang = require("lang")
 local T = lang.t
+local train = require("train")    -- the other game mode: the Animal Train
 
 local world = {}
 local g = love.graphics
@@ -52,6 +53,7 @@ for _, r in ipairs(PENS) do
     r.hutY = r.gate == "top" and r.y + r.h - 24 or r.y + 75
 end
 world.pens = PENS        -- each one: kind, target (set by newRound)
+local active = PENS      -- the pens of this game (none in the train mode)
 
 -- Where the kids start: the clearing in the middle.
 local START_X, START_Y = 640, 380
@@ -111,7 +113,7 @@ local function setAnim(o, name)
 end
 
 local function penAt(o)
-    for i, r in ipairs(PENS) do
+    for i, r in ipairs(active) do
         if o.x > r.x + 8 and o.x < r.x + r.w - 8 and o.y > r.y + 8 and o.y < r.y + r.h - 4 then
             return i
         end
@@ -244,7 +246,7 @@ for _, r in ipairs(PENS) do
 end
 
 local function blockByFences(o, px, py)
-    for _, r in ipairs(PENS) do
+    for _, r in ipairs(active) do
         for _, row in ipairs(r.rows) do
             local y, x1, x2 = row[1], row[2], row[3]
             if o.x > x1 - BODY and o.x < x2 + BODY and math.abs(o.y - y) < WALL then
@@ -319,6 +321,8 @@ function world.makeFonts()
     fonts.sign = art.font(60)
     fonts.big = art.font(44)
     fonts.small = art.font(20)
+    fonts.badge = art.font(22)
+    fonts.board = art.font(30)
 end
 
 function world.load()
@@ -382,6 +386,10 @@ local function newRound()
     world.animals = {}
     world.popups = {}
     for _, k in ipairs(world.kids) do k.followers = {} end
+    if world.mode == "train" then
+        train.newRound(world.level)
+        return
+    end
 
     -- three different huts for the pens this time
     local huts = {}
@@ -447,7 +455,7 @@ function world.makeBiome(biome, z)
         local tree = { x = clamp(c.x + rand(-110, 110), z.x1 + 40, z.x2 - 40),
             y = clamp(c.y + rand(-70, 70), z.y1 + 125, z.y2 - 8), s = rand(0.85, 1.05),
             kind = biome.trees[love.math.random(#biome.trees)], f = love.math.random() < 0.5 and -1 or 1 }
-        local ok = not inPond(tree, 45) and dist(tree, { x = START_X, y = START_Y }) > 150
+        local ok = not inPond(tree, 45) and dist(tree, { x = world.startX, y = world.startY }) > 150
         for _, other in ipairs(world.trees) do
             if dist(tree, other) < 85 then ok = false end
         end
@@ -464,7 +472,13 @@ function world.makeBiome(biome, z)
     end
 end
 
-function world.start(chosen, level)
+-- mode: "fete" (the pens, default) or "train".
+function world.start(chosen, level, mode)
+    world.mode = mode == "train" and "train" or "fete"
+    active = world.mode == "train" and {} or PENS
+    local zones = world.mode == "train" and train.ZONES or ZONES
+    world.startX = world.mode == "train" and train.START_X or START_X
+    world.startY = world.mode == "train" and train.START_Y or START_Y
     world.treeCount = 0
     world.time = 0
     world.done = false
@@ -477,25 +491,27 @@ function world.start(chosen, level)
     for i, c in ipairs(chosen) do
         table.insert(world.kids, {
             player = c.player, look = art.KIDS[c.kid],
-            x = START_X - 40 + (i - 1) * 80, y = START_Y, facing = 1,
+            x = world.startX - 40 + (i - 1) * 80, y = world.startY, facing = 1,
             walk = 0, anim = "repos", animT = 0, cheer = 0, followers = {},
         })
     end
 
     world.trees, world.props, world.pond, world.home = {}, {}, nil, {}
     for i, biome in ipairs(shuffle({ unpack(BIOMES) })) do
-        world.makeBiome(biome, ZONES[i])
+        world.makeBiome(biome, zones[i])
     end
     -- a few flowers in the clearing
     for _ = 1, 10 do
         table.insert(world.props, { name = love.math.random() < 0.7 and "fleurs" or "feuille",
-            x = rand(470, 810), y = rand(270, 470), f = love.math.random() < 0.5 and -1 or 1, s = rand(0.85, 1.1) })
+            x = world.startX + rand(-170, 170), y = world.startY + rand(-110, 90),
+            f = love.math.random() < 0.5 and -1 or 1, s = rand(0.85, 1.1) })
     end
     table.sort(world.props, function(a, b) return a.y < b.y end)
 
     local kidNames = {}
     for _, k in ipairs(world.kids) do kidNames[#kidNames + 1] = k.look.id end
-    journal.start({ joueurs = #chosen, enfants = kidNames, niveau = world.level, langue = lang.current })
+    journal.start({ joueurs = #chosen, enfants = kidNames, mode = world.mode, niveau = world.level,
+        langue = lang.current })
     newRound()
 end
 
@@ -522,6 +538,19 @@ local function tryGrab(k, fresh)
             local d = dist(k, a)
             if d < k.look.reach and (not bestD or d < bestD) then best, bestD = a, d end
         end
+    end
+    if world.mode == "train" then
+        -- only the next number follows; the train takes them all (no limit)
+        if not best then return end
+        if not train.canCall(best) then
+            if fresh then train.refuse(best) end
+            return
+        end
+        best.vx, best.vy, best.state = 0, 0, "follow"
+        table.insert(k.followers, best)
+        hearts(best.x, best.y - 40, 1)
+        train.called(k, best)
+        return
     end
     local here = penAt(k)
     if not best and fresh and here then
@@ -570,7 +599,7 @@ local function letGo(k)
     local a = table.remove(k.followers)
     journal.log("lache", { joueur = k.player, animal = a.kind })
     local here = penAt(k)
-    if here and PENS[here].kind == a.kind then
+    if here and world.mode ~= "train" and PENS[here].kind == a.kind then
         enter(a, here, 0.2)
     else
         a.state, a.tx, a.ty, a.wait = "free", a.x, a.y, rand(1, 2)
@@ -685,6 +714,10 @@ local function updateKid(k, dt)
     elseif len > 0.1 then setAnim(k, leading and "marche" or "course")
     else setAnim(k, "repos") end
 
+    if world.mode == "train" then
+        train.arrive(k)
+        return
+    end
     -- Walk into a pen: the animals it wants go inside, one after the other
     -- (only when you arrive, so an animal you take back out doesn't go straight
     -- back in). The others shake their heads and stay with you.
@@ -728,10 +761,10 @@ local function separateAnimals()
     local list = world.animals
     for i = 1, #list do
         local a = list[i]
-        if a.state ~= "follow" then
+        if a.state == "free" or a.state == "home" then
             for j = i + 1, #list do
                 local b = list[j]
-                if b.state ~= "follow" then
+                if b.state == "free" or b.state == "home" then
                     local dx, dy = (b.x - a.x) / GAP_X, (b.y - a.y) / GAP_Y
                     local d = math.sqrt(dx * dx + dy * dy)
                     if d < 1 then
@@ -771,6 +804,8 @@ local function updateAnimal(a, dt)
             end
         end
         blockByTrees(a)
+    elseif a.state == "board" then
+        train.updateBoard(a, dt)
     elseif a.state == "home" then
         if not a.counted then
             a.countIn = a.countIn - dt
@@ -799,6 +834,7 @@ end
 
 -- All three pens right (and nobody still walking in)?
 local function allRight()
+    if world.mode == "train" then return train.done() end
     for _, a in ipairs(world.animals) do
         if a.state == "home" and not a.counted then return false end
     end
@@ -832,7 +868,7 @@ local function updateEffects(dt)
         end
         tr.see = clamp((tr.see or 1) + (behind and -dt or dt) * 4, 0.45, 1)
     end
-    for _, pen in ipairs(PENS) do
+    for _, pen in ipairs(active) do
         pen.nope = math.max(0, (pen.nope or 0) - dt)
         -- the sign is see-through while a kid is behind it
         local x, y, w, h = signRect(pen)
@@ -859,7 +895,8 @@ function world.update(dt)
             world.duck = 3
             sfx.play("win")
             for _, k in ipairs(world.kids) do k.cheer = 3 end
-            for _, pen in ipairs(PENS) do stars(pen.x + 120, pen.y + 140, 10) end
+            for _, pen in ipairs(active) do stars(pen.x + 120, pen.y + 140, 10) end
+            if world.mode == "train" then train.party() end
             journal.log("bravo", { niveau = world.level, manches = world.roundsWon })
         end
     elseif world.phase == "party" then
@@ -879,6 +916,7 @@ function world.update(dt)
         end
     end
     if world.phase == "play" and world.fade > 0 then world.fade = math.max(0, world.fade - dt * 2.5) end
+    if world.mode == "train" then train.update(dt) end
 
     for _, k in ipairs(world.kids) do updateKid(k, dt) end
     separateKids()
@@ -954,6 +992,7 @@ end
 local function drawAnimal(a)
     local shake = math.sin((a.nope or 0) * 40) * 5 * (a.nope or 0) / 0.6
     art.animal(a.kind, a.x + shake, a.y, a.facing, 1.2, true, a.anim, a.animT)
+    if world.mode == "train" then train.drawBadge(a, shake) end
 end
 
 -- At the top: one star per round won.
@@ -962,6 +1001,7 @@ local function hud()
     if n == 0 then return end
     local shown = math.min(n, 12)
     local x0 = START_X - (shown - 1) * 17
+    if world.mode == "train" then x0 = 40 end          -- (the train's numbers are in the middle)
     g.setColor(0.2, 0.12, 0.08, 0.55)
     g.rectangle("fill", x0 - 24, 6, (shown - 1) * 34 + 48, 40, 16)
     for s = 1, shown do art.star(x0 + (s - 1) * 34, 26, 14, true) end
@@ -969,16 +1009,22 @@ end
 
 function world.draw()
     ground()
-    for _, r in ipairs(PENS) do art.pen(r) end
+    for _, r in ipairs(active) do art.pen(r) end
+    if world.mode == "train" then train.drawGround() end
 
     -- everything with feet, back to front
     local things = {}
     for _, tr in ipairs(world.trees) do table.insert(things, { y = tr.y, tree = tr }) end
-    for _, a in ipairs(world.animals) do table.insert(things, { y = a.y, animal = a }) end
+    for _, a in ipairs(world.animals) do
+        if not train.isSeated(a) then table.insert(things, { y = a.y, animal = a }) end
+    end
     for _, k in ipairs(world.kids) do table.insert(things, { y = k.y, kid = k }) end
+    if world.mode == "train" then train.things(things) end
     table.sort(things, function(a, b) return a.y < b.y end)
     for _, o in ipairs(things) do
-        if o.tree then
+        if o.draw then
+            o.draw()
+        elseif o.tree then
             if (o.tree.see or 1) < 1 then art.tint = { 1, 1, 1, o.tree.see } end
             art.tree(o.tree.x, o.tree.y, o.tree.s, false, o.tree.kind, o.tree.f)
             art.tint = nil
@@ -989,7 +1035,7 @@ function world.draw()
         end
     end
 
-    for i in ipairs(PENS) do drawSign(i) end
+    for i in ipairs(active) do drawSign(i) end
     for _, p in ipairs(world.particles) do
         local a = p.life / p.max
         if p.star then
@@ -1003,11 +1049,12 @@ function world.draw()
         local c = p.color or { 1, 1, 1 }
         outlined(p.text, fonts.big, p.x - 60, p.y - u * 40, 120, { c[1], c[2], c[3], 1 - u * u })
     end
+    if world.mode == "train" then train.drawBoard() end
     hud()
     if world.phase == "party" then
         local s = 1 + 0.15 * math.sin(world.partyTime * 6)
         g.push()
-        g.translate(START_X, START_Y - 60)
+        g.translate(world.startX, world.startY - 60)
         g.scale(s * math.min(1, world.partyTime * 3))
         art.star(0, 0, 90, true)
         g.pop()
@@ -1017,5 +1064,10 @@ function world.draw()
         g.rectangle("fill", 0, 0, world.W, world.H)
     end
 end
+
+-- The train mode uses the same meadow, animals and helpers.
+train.setup(world, { newAnimal = newAnimal, biomeSpot = biomeSpot, moveToward = moveToward,
+    popup = popup, hearts = hearts, stars = stars, outlined = outlined, fonts = fonts,
+    journal = journal, KINDS = KINDS, shuffle = shuffle })
 
 return world

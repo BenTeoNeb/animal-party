@@ -21,6 +21,8 @@ local TEXTS = {
         language_item = "Langue : Français",
         level_1 = "Compter  1 2 3", level_2 = "Ajouter  +", level_3 = "Enlever  -",
         level_item = "Niveau : %s",
+        mode_fete = "Les enclos", mode_train = "Le train", mode_item = "Jeu : %s",
+        level_train_1 = "1 2 3 4 5", level_train_2 = "4 5 6 7 8", level_train_3 = "5 4 3 2 1",
     },
     en = {
         title = "ANIMAL PARTY!",
@@ -39,6 +41,8 @@ local TEXTS = {
         language_item = "Language: English",
         level_1 = "Count  1 2 3", level_2 = "Add  +", level_3 = "Take away  -",
         level_item = "Level: %s",
+        mode_fete = "The pens", mode_train = "The train", mode_item = "Game: %s",
+        level_train_1 = "1 2 3 4 5", level_train_2 = "4 5 6 7 8", level_train_3 = "5 4 3 2 1",
     },
 }
 

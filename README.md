@@ -48,6 +48,22 @@ No timer, no losing. When all three pens are right: a party and a star,
 then the next round. After 3 rounds, the next level. The level to start
 with is chosen in the menu (Start) on the home screen.
 
+### The Animal Train
+
+The second game (chosen on the home screen, top right, with up / down or
+in the menu). Animals wearing a number wait in the meadow: call them **in
+order** and lead them onto the platform, where each one climbs into its
+numbered wagon and says its number. Only the next number follows you;
+another one shakes its head. A board at the top shows the train's numbers
+(yellow: following, green: in the train, the next one pulses); after 10
+seconds without finding it, the next animal sparkles. When everyone is in,
+the train whistles and leaves.
+
+- **Level 1**: 1 to 3, 4 or 5.
+- **Level 2**: five numbers starting from 2 to 5 (4 5 6 7 8), with a number
+  just before and just after that are not in the train.
+- **Level 3**: count down to 1 (from 5 to 8), with bigger numbers as decoys.
+
 **The kids' voices**: record them saying the numbers and put the files in
 `voix/fr/1.ogg`, `voix/fr/2.ogg`... (`voix/en/` in English; .ogg, .mp3 or
 .wav). The game says the numbers with their voices instead of the notes.

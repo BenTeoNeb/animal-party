@@ -27,7 +27,7 @@ local T = lang.t
 --   update(dt), done(), party(), hidden(a), things(list), drawGround(),
 --   drawOnAnimal(a, shake), drawHud()
 local MODES = { train = require("train"), flash = require("flash"), path = require("path"),
-    nid = require("nid") }
+    nid = require("nid"), oeufs = require("oeufs") }
 
 local world = {}
 local g = love.graphics

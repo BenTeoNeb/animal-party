@@ -68,6 +68,11 @@ function sfx.load()
         S.chirp(b, 0.28, 740, 720, 0.6, 0.5, "sine", 0.01)
         S.chirp(b, 0.28, 932, 900, 0.6, 0.35, "sine", 0.01)
     end, 1.0, 0.7, 0.2), 0.02)
+    add("clac", make(function(b)                  -- ten eggs snap into a box: "clac!" and a chime
+        S.noise(b, 0.0, 0.05, 0.7, 0.9, 60)
+        S.bell(b, 0.06, hz(84), 0.5, 0.5)
+        S.bell(b, 0.12, hz(88), 0.5, 0.4)
+    end, 0.9, 0.7, 0.15), 0.02)
     add("grab", make(function(b)                  -- (any other) a happy "pop"
         S.chirp(b, 0, 500, 1100, 0.1, 0.5, "sine", nil, 0.5)
     end, 0.2, 0.6, 0.1), 0.06)

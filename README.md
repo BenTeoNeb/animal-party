@@ -121,9 +121,26 @@ the work on tens (the Singapore method's ten-frame). 5 nests make a round.
 - **Level 3**: the nest has a straw roof and the sign says "7 + ? = 10"; not
   right, the roof lifts a moment to show the nest.
 
+### The Egg Boxes (Les œufs)
+
+Eggs lie all over the meadow: walk on them to pick them up; 10 eggs snap
+into a box ("clac!"). The market cart asks for a number, say 34: bring it
+exactly 3 boxes and 4 eggs. It counts them, "10, 20, 30, 31… 34", and
+shows "34 = 30 + 4". Too many or too few, it wobbles; the right button puts
+an egg down, and with no loose egg it opens a box (one egg down, 9 loose:
+breaking a ten). What a kid carries shows above their head, in boxes and
+eggs. Tens and ones to 100 (the Singapore method's bundles of ten).
+3 deliveries make a round.
+
+- **Level 1**: 10 to 19, make the box yourself; the sign shows the number
+  and the same in boxes and eggs.
+- **Level 2**: 20 to 59, some full boxes lie about but one must be made.
+- **Level 3**: 20 to 99, the sign shows the number only (the boxes and eggs
+  come back after a wrong try).
+
 The games share the meadow, the kids and the animals (`world.lua`, which is
 also the pens game); the train and Peekaboo add their own rules
-(`train.lua`, `flash.lua`, `path.lua`, `nid.lua`) through the hooks listed at the top of
+(`train.lua`, `flash.lua`, `path.lua`, `nid.lua`, `oeufs.lua`) through the hooks listed at the top of
 `world.lua`.
 
 **The kids' voices**: record them saying the numbers and put the files in

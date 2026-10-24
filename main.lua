@@ -29,7 +29,7 @@ local g = love.graphics
 local state = "games"      -- "games" (choose the game), "select" (choose the kids), "play"
 local level = 1           -- 1 count, 2 add, 3 take away (chosen in the menu)
 local mode = "fete"       -- "fete" (the pens), "train", "flash" or "path" (the games screen)
-local MODES = { "fete", "train", "flash", "path", "nid" }
+local MODES = { "fete", "train", "flash", "path", "nid", "oeufs" }
 local function nextMode(dir)
     for i, m in ipairs(MODES) do
         if m == mode then mode = MODES[(i - 1 + dir) % #MODES + 1] return end
@@ -316,6 +316,13 @@ local function drawModeIcon(m)
         g.ellipse("fill", 40, -30, 12, 15)
         g.setColor(1, 0.82, 0.2)
         g.ellipse("fill", 40, -30, 10, 13)
+    elseif m == "oeufs" then            -- a hen, two egg boxes and three eggs: 23
+        local O = require("oeufs")
+        art.animal("poule", -42, 30, 1, 0.7, true)
+        O.drawBox(0, 4, 0.75)
+        O.drawBox(0, 26, 0.75)
+        for i = 0, 2 do O.drawEgg(34 + i * 13, 26, 0.75) end
+        art.disk(23, 40, -20, 15, "todo", fonts.small)
     else                                -- three stepping stones and a squirrel hopping
         for i = 0, 2 do art.stone(i + 1, -38 + i * 38, 26, 36, nil, fonts.small, i) end
         g.setColor(1, 1, 1, 0.8)

@@ -1,7 +1,7 @@
 function love.conf(t)
-    t.identity = "nouveau-jeu"   -- name of the save folder
+    t.identity = "fete-des-animaux"   -- name of the save folder
     t.version = "11.5"                 -- the LÖVE version the game is made for
-    t.window.title = "New Game!"
+    t.window.title = "Animal Party!"
     t.window.icon = "images/icone.png"
     t.window.width = 1280
     t.window.height = 720

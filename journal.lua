@@ -1,8 +1,8 @@
 -- journal.lua: a log of every real game, to improve the gameplay later.
 --
 -- One file per game, in the game's save folder:
---   macOS: ~/Library/Application Support/LOVE/nouveau-jeu/parties/
---   Linux: ~/.local/share/love/nouveau-jeu/parties/
+--   macOS: ~/Library/Application Support/LOVE/fete-des-animaux/parties/
+--   Linux: ~/.local/share/love/fete-des-animaux/parties/
 -- One JSON object per line: {"t": seconds into the game, "e": event, ...}.
 -- Only main.lua turns it on (journal.enabled), so tests don't write anything;
 -- NO_LOG=1 in the environment also turns it off.

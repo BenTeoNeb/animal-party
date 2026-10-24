@@ -1,24 +1,24 @@
 #!/bin/sh
-# Install "New Game!" (Nouveau Jeu !) for this user, on
+# Install "Animal Party!" (La Fête des Animaux !) for this user, on
 # Bazzite, SteamOS or any Linux: no root needed, nothing outside your home.
 #
 #   sh install.sh               install (or update), add to the menu (and Steam)
 #   sh install.sh --uninstall   remove it (your records are kept)
 #
-# Installs into ~/.local/share/new-game, unpacks LÖVE there once (fast
-# start, no FUSE needed), and adds "New Game!" to the applications menu.
+# Installs into ~/.local/share/animal-party, unpacks LÖVE there once (fast
+# start, no FUSE needed), and adds "Animal Party!" to the applications menu.
 set -e
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
-DEST="${XDG_DATA_HOME:-$HOME/.local/share}/new-game"
+DEST="${XDG_DATA_HOME:-$HOME/.local/share}/animal-party"
 APPS="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
-DESKTOP="$APPS/new-game.desktop"
-SAVES="${XDG_DATA_HOME:-$HOME/.local/share}/love/nouveau-jeu"
+DESKTOP="$APPS/animal-party.desktop"
+SAVES="${XDG_DATA_HOME:-$HOME/.local/share}/love/fete-des-animaux"
 
 if [ "$1" = "--uninstall" ]; then
     rm -rf "$DEST" "$DESKTOP"
     command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database "$APPS" >/dev/null 2>&1 || true
-    echo "New Game! est désinstallé / is uninstalled."
+    echo "Animal Party! est désinstallé / is uninstalled."
     echo "Les records restent ici / your records are kept here: $SAVES"
     echo "(Dans Steam, supprimez le raccourci à la main / in Steam, remove the shortcut by hand.)"
     exit 0
@@ -27,11 +27,11 @@ fi
 # 1) the files
 mkdir -p "$DEST"
 if [ "$HERE" != "$DEST" ]; then
-    for f in NewGame.sh new-game.love love.AppImage icone.png LICENSE install.sh LISEZ-MOI-BAZZITE.txt; do
+    for f in AnimalParty.sh animal-party.love love.AppImage icone.png LICENSE install.sh LISEZ-MOI-BAZZITE.txt; do
         [ -f "$HERE/$f" ] && cp "$HERE/$f" "$DEST/"
     done
 fi
-chmod +x "$DEST/NewGame.sh" "$DEST/love.AppImage" "$DEST/install.sh"
+chmod +x "$DEST/AnimalParty.sh" "$DEST/love.AppImage" "$DEST/install.sh"
 
 # 2) unpack LÖVE once: the game then starts fast and doesn't need FUSE
 #    (if this fails, the launcher still works: the AppImage unpacks itself)
@@ -65,11 +65,11 @@ mkdir -p "$APPS"
 cat > "$DESKTOP" <<EOF
 [Desktop Entry]
 Type=Application
-Name=New Game!
-Name[fr]=Nouveau Jeu !
-Comment=A game made with children for children. 1 or 2 players, with game controllers.
-Comment[fr]=Un jeu fait avec des enfants pour des enfants. 1 ou 2 joueurs, avec des manettes.
-Exec="$DEST/NewGame.sh"
+Name=Animal Party!
+Name[fr]=La Fête des Animaux !
+Comment=Count the animals into their pens! A counting game for young children. 1 or 2 players, with game controllers.
+Comment[fr]=Compte les animaux dans leurs enclos ! Un jeu pour apprendre à compter. 1 ou 2 joueurs, avec des manettes.
+Exec="$DEST/AnimalParty.sh"
 Path=$DEST
 Icon=$DEST/icone.png
 Terminal=false
@@ -78,7 +78,7 @@ StartupNotify=false
 EOF
 chmod +x "$DESKTOP"
 command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database "$APPS" >/dev/null 2>&1 || true
-echo "OK  menu: New Game!"
+echo "OK  menu: Animal Party!"
 
 # 4) Steam: on SteamOS (and Bazzite, if it has it) the game can be added to
 #    Steam directly (Steam must be running, in desktop mode)
@@ -89,7 +89,7 @@ if command -v steamos-add-to-steam >/dev/null 2>&1; then
         echo "Steam : ajoutez le jeu à la main (voir LISEZ-MOI) / add it by hand (see LISEZ-MOI)"
     fi
 else
-    echo "Steam : Ajouter un jeu > Ajouter un jeu non-Steam > New Game!"
-    echo "        Add a Game > Add a Non-Steam Game > New Game!"
+    echo "Steam : Ajouter un jeu > Ajouter un jeu non-Steam > Animal Party!"
+    echo "        Add a Game > Add a Non-Steam Game > Animal Party!"
 fi
 echo "Installé dans / installed in: $DEST"

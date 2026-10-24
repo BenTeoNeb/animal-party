@@ -18,8 +18,8 @@ Copied from `volcan/` (the two games now live their own lives):
   style reference (`planches/reference.jpeg`) and `art.json` are kept so new
   drawings made with the `game-art` skill match the old ones.
 - **Tools**: `outils/build.sh` (Mac, Windows, Linux / Bazzite, .love),
-  `outils/linux/` (installer), `outils/icone/` (still draws Lava Rescue's
-  icon), and the image tools.
+  `outils/linux/` (installer), `outils/icone/` (draws the icon from the
+  game's images), and the image tools.
 
 ## The game
 
@@ -46,13 +46,7 @@ with is chosen in the menu (Start) on the home screen.
 ## Play
 
 ```bash
-/Applications/love.app/Contents/MacOS/love jeu2     # macOS
-love jeu2                                           # Linux / Windows
-sh jeu2/outils/build.sh                             # -> dist/
+/Applications/love.app/Contents/MacOS/love fete     # macOS
+love fete                                           # Linux / Windows
+sh fete/outils/build.sh                             # -> dist/AnimalParty-*
 ```
-
-## Still to do
-
-The folder, the window and the packages still have placeholder names
-(`New Game` / `NewGame` / `new-game` / `Nouveau Jeu` / `nouveau-jeu` /
-`jeu2`, in `conf.lua` and `outils/`), and the icon is Lava Rescue's.

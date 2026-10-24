@@ -41,6 +41,9 @@ behind them.
 - **Level 3, take away**: some pens have too many: take the extra ones out
   (bottom button inside the pen), then let them go outside (right button).
 
+Brought the wrong animals? The right button (B, or Enter / G on the
+keyboard) lets go of the last one in line; hold it to let go of all of them.
+
 No timer, no losing. When all three pens are right: a party and a star,
 then the next round. After 3 rounds, the next level. The level to start
 with is chosen in the menu (Start) on the home screen.

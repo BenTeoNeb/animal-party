@@ -563,6 +563,21 @@ local function refuse(a, i)
     PENS[i].nope = 0.6
 end
 
+-- Let go of one animal (the last in line); in its own pen, it goes in.
+-- Holding the button lets go of the next ones too, one after the other.
+local DROP_FIRST, DROP_REPEAT = 0.4, 0.2   -- seconds before the 2nd, then between the next ones
+local function letGo(k)
+    local a = table.remove(k.followers)
+    journal.log("lache", { joueur = k.player, animal = a.kind })
+    local here = penAt(k)
+    if here and PENS[here].kind == a.kind then
+        enter(a, here, 0.2)
+    else
+        a.state, a.tx, a.ty, a.wait = "free", a.x, a.y, rand(1, 2)
+        sfx.play("drop")
+    end
+end
+
 function world.action(p, action)
     if world.phase ~= "play" then return end
     local k = kidOf(p)
@@ -570,16 +585,8 @@ function world.action(p, action)
     if action == "grab" then
         tryGrab(k, true)
     elseif action == "drop" and #k.followers > 0 then
-        -- let go of one animal only (the last in line); in its own pen, it goes in
-        local a = table.remove(k.followers)
-        journal.log("lache", { joueur = k.player, animal = a.kind })
-        local here = penAt(k)
-        if here and PENS[here].kind == a.kind then
-            enter(a, here, 0.2)
-        else
-            a.state, a.tx, a.ty, a.wait = "free", a.x, a.y, rand(1, 2)
-            sfx.play("drop")
-        end
+        letGo(k)
+        k.dropWait = DROP_FIRST
     end
 end
 
@@ -643,6 +650,11 @@ local function updateKid(k, dt)
     -- holding the grab button keeps calling animals, one after the other
     if world.phase == "play" and k.grabWait == 0 and input.held(k.player, "grab") then
         tryGrab(k, false)
+    end
+    k.dropWait = math.max(0, (k.dropWait or 0) - dt)
+    if world.phase == "play" and k.dropWait == 0 and #k.followers > 0 and input.held(k.player, "drop") then
+        letGo(k)
+        k.dropWait = DROP_REPEAT
     end
     local dx, dy = input.move(k.player)
     if world.phase ~= "play" then dx, dy = 0, 0 end

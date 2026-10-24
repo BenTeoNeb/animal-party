@@ -1,10 +1,15 @@
 -- path.lua: the Number Path (le chemin des nombres). Stones numbered 0 to 10
 -- wind across the meadow. An animal sits on one of them, and the sign at the
--- top says where it goes: "2 + 3 = ?". Each press of the bottom button (next
--- to the animal) makes it hop one stone, saying the number it lands on, and
--- fills one dot under the 3. After the last hop the "?" becomes the answer
--- and the animal's friend pops out by that stone. "-" means hopping back.
--- The right button hops back one (to fix a mistake). 5 trips make a round.
+-- top says where it goes: "2 + 3 = ?" ("-" means going back). The kid
+-- answers by standing on the stone of the result (in their head):
+--   right:     the animal hops there stone by stone, saying the numbers and
+--              filling one dot under the 3 per hop (the proof), and its
+--              friend pops out by that stone
+--   not right: the stone wobbles and darkens, and the animal sparkles: now
+--              the kid may make it hop, one press of the bottom button next to
+--              it = one hop (the right button hops back), to count it out
+-- After answering the kid walks back to the start by itself. 5 trips make a
+-- round.
 -- Levels:
 --   1  adding 1 to 3, up to 8
 --   2  taking away 1 to 3
@@ -23,6 +28,9 @@ local STONES = 11                -- 0 to 10
 local HOP_TIME = 0.4             -- seconds in the air
 local NEAR = 150                 -- how close to the animal a kid must be to make it hop
 local PER_ROUND = 5              -- trips in a round
+local STAND = 0.6                -- seconds standing on a stone to answer with it
+local ON_STONE = 40              -- how close to a stone's middle is standing on it
+local AUTO_GAP = 0.15            -- seconds between the hops of the proof
 
 path.START_X, path.START_Y = 640, 520
 -- The biomes above and below the path.
@@ -60,6 +68,15 @@ local function newTrip()
     until not (s == S.start and n == S.n)
     S.start, S.n, S.dir, S.hops, S.at = s, n, dir, 0, s
     S.phase, S.t = "play", 0
+    S.answer = s + n * dir
+    S.off, S.stand, S.nope, S.lock = {}, {}, {}, {}     -- stones ruled out, being stood on...
+    S.help, S.auto = false, false
+    for _, k in ipairs(W.kids) do              -- a kid already on a stone must step off first
+        for m = 0, STONES - 1 do
+            local x, y = stoneAt(m)
+            if ctx.dist(k, { x = x, y = y }) < ON_STONE then S.lock[m] = k end
+        end
+    end
     local kind = ctx.KINDS[love.math.random(#ctx.KINDS)]
     local a = ctx.newAnimal(kind)
     a.state = "path"
@@ -89,10 +106,11 @@ local function near(k)
     return ctx.dist(k, S.animal) < NEAR
 end
 
--- The bottom button, next to the animal: one hop the sign's way (one press,
--- one hop: holding the button does nothing more, so each hop is counted).
+-- The bottom button, next to the animal, once the kid has tried an answer:
+-- one hop the sign's way (one press, one hop: holding the button does nothing
+-- more, so each hop is counted).
 function path.grab(k, _, fresh)
-    if not fresh or S.phase ~= "play" or not near(k) then return end
+    if not fresh or not S.help or S.auto or S.phase ~= "play" or not near(k) then return end
     if S.hops < S.n then
         hop(S.dir)
     else
@@ -103,11 +121,50 @@ end
 
 -- The right button: hop back one, to fix a mistake.
 function path.drop(k)
-    if S.phase ~= "play" or not near(k) or S.hops <= 0 then return end
+    if not S.help or S.auto or S.phase ~= "play" or not near(k) or S.hops <= 0 then return end
     hop(-S.dir)
 end
 
 function path.arrive() end
+
+-- A kid answered with stone m (and walks back to the start).
+local function answer(m, k)
+    k.autoTo = { path.START_X, path.START_Y }
+    ctx.journal.log("reponse", { joueur = k.player, depart = S.start, sauts = S.n * S.dir, choisi = m,
+        juste = m == S.answer, aide = S.help })
+    if m == S.answer then
+        S.auto, S.t = true, 0.3                 -- the animal hops there, to show it
+    else
+        S.off[m], S.nope[m], S.help = true, 0.6, true
+        sfx.play("drop")
+    end
+end
+
+-- Standing on a stone for a moment answers with it (not the animal's own
+-- stone, nor one ruled out, nor one the kid was already on).
+local function standOnStones(dt)
+    for m = 0, STONES - 1 do
+        local x, y = stoneAt(m)
+        local who
+        for _, k in ipairs(W.kids) do
+            if ctx.dist(k, { x = x, y = y }) < ON_STONE then
+                if S.lock[m] ~= k and not k.autoTo then who = k end
+            elseif S.lock[m] == k then
+                S.lock[m] = nil
+            end
+        end
+        if who and not S.off[m] and m ~= S.at and S.phase == "play" and not S.auto then
+            S.stand[m] = (S.stand[m] or 0) + dt
+            if S.stand[m] >= STAND then
+                S.stand[m] = 0
+                answer(m, who)
+                return
+            end
+        else
+            S.stand[m] = math.max(0, (S.stand[m] or 0) - dt * 2)
+        end
+    end
+end
 
 function path.updateAnimal(a, dt)
     if a ~= S.animal or not a.hopT then return end
@@ -129,9 +186,15 @@ function path.updateAnimal(a, dt)
 end
 
 function path.update(dt)
+    for m in pairs(S.nope) do S.nope[m] = math.max(0, S.nope[m] - dt) end
     if W.phase ~= "play" then return end
+    standOnStones(dt)
     S.t = S.t - dt
-    if S.phase == "landed" and S.t <= 0 then
+    if S.auto and S.phase == "play" and S.t <= 0 then
+        -- the proof: hop by hop to the answer (from wherever it is now)
+        if S.hops < S.n then hop(S.dir) else hop(-S.dir) end
+        S.t = AUTO_GAP
+    elseif S.phase == "landed" and S.t <= 0 then
         -- its friend pops out by the stone
         local x, y = stoneAt(S.at)
         local f = ctx.newAnimal(S.animal.kind)
@@ -163,7 +226,14 @@ end
 
 function path.hidden() return false end
 function path.things() end
-function path.drawOnAnimal() end
+-- Once the kid has tried an answer, the animal sparkles: it can be made to hop.
+function path.drawOnAnimal(a)
+    if a ~= S.animal or not S.help or S.auto or S.phase ~= "play" then return end
+    local t = W.time * 5
+    local top = a.y - art.height(a.kind) * 1.2
+    art.star(a.x + 24, top - 6 - math.abs(math.sin(t)) * 8, 9, true)
+    art.star(a.x - 22, top + 2 - math.abs(math.cos(t)) * 8, 7, true)
+end
 
 -- Drawing ------------------------------------------------------------------------
 
@@ -187,8 +257,15 @@ function path.drawGround()
         local kind
         if S.phase == "together" and n == S.at then kind = "ok"
         elseif n == S.start then kind = "start"
-        elseif n >= lo and n <= hi then kind = "todo" end
-        art.stone(n, x, y, 84, kind, ctx.fonts.board)
+        elseif S.off[n] then kind = "off"
+        elseif n >= lo and n <= hi and (S.hops > 0) then kind = "todo" end
+        local shake = math.sin((S.nope[n] or 0) * 40) * 6 * (S.nope[n] or 0) / 0.6
+        art.stone(n, x + shake, y, 84, kind, ctx.fonts.board)
+        if (S.stand[n] or 0) > 0 then          -- standing on it: a ring fills
+            g.setColor(1, 0.85, 0.3)
+            g.setLineWidth(6)
+            g.arc("line", "open", x, y, 52, -math.pi / 2, -math.pi / 2 + math.pi * 2 * S.stand[n] / STAND)
+        end
     end
 end
 

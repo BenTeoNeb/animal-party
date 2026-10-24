@@ -94,12 +94,14 @@ round. It trains seeing small numbers at a glance, then adding groups.
 ### The Number Path (Le chemin)
 
 Stones numbered 0 to 10 wind across the meadow. An animal sits on one, and
-the sign at the top says where it goes: "2 + 3 = ?". Next to the animal,
-each press of the bottom button makes it hop one stone, saying the number it
-lands on, and fills one of the three dots under the 3; the right button hops
-back one. After the last hop the "?" becomes the answer and the animal's
-friend pops out by that stone. A "-" means hopping back: taking away. 5 trips
-make a round.
+the sign at the top says where it goes: "2 + 3 = ?" ("-" means going back).
+The kid answers in their head, by standing on the stone of the result:
+right, the animal hops there stone by stone, saying the numbers and filling
+one dot per hop under the 3 (the proof on the number line), and its friend
+pops out by that stone; not right, the stone wobbles and darkens, and the
+animal sparkles: now the bottom button next to it makes it hop one stone
+(the right button hops back), to count it out. After answering the kid walks
+back by itself. 5 trips make a round.
 
 - **Level 1**: adding 1 to 3, up to 8.
 - **Level 2**: taking away 1 to 3.

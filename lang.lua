@@ -25,6 +25,7 @@ local TEXTS = {
         mode_fete = "Les enclos", mode_train = "Le train", mode_flash = "Coucou !",
         level_flash_1 = "1 2 3", level_flash_2 = "2 3 4 5", level_flash_3 = "3 4 5 6",
         mode_path = "Le chemin", level_path_1 = "2 + 3", level_path_2 = "5 - 2", level_path_3 = "+ et -",
+        mode_nid = "Le nid de 10", level_nid_1 = "Remplir", level_nid_2 = "D'un coup", level_nid_3 = "6 + ? = 10",
         level_train_1 = "1 2 3 4 5", level_train_2 = "4 5 6 7 8", level_train_3 = "5 4 3 2 1",
     },
     en = {
@@ -48,6 +49,7 @@ local TEXTS = {
         mode_fete = "The pens", mode_train = "The train", mode_flash = "Peekaboo!",
         level_flash_1 = "1 2 3", level_flash_2 = "2 3 4 5", level_flash_3 = "3 4 5 6",
         mode_path = "The path", level_path_1 = "2 + 3", level_path_2 = "5 - 2", level_path_3 = "+ and -",
+        mode_nid = "The nest of 10", level_nid_1 = "Fill it", level_nid_2 = "All at once", level_nid_3 = "6 + ? = 10",
         level_train_1 = "1 2 3 4 5", level_train_2 = "4 5 6 7 8", level_train_3 = "5 4 3 2 1",
     },
 }

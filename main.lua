@@ -29,7 +29,7 @@ local g = love.graphics
 local state = "games"      -- "games" (choose the game), "select" (choose the kids), "play"
 local level = 1           -- 1 count, 2 add, 3 take away (chosen in the menu)
 local mode = "fete"       -- "fete" (the pens), "train", "flash" or "path" (the games screen)
-local MODES = { "fete", "train", "flash", "path" }
+local MODES = { "fete", "train", "flash", "path", "nid" }
 local function nextMode(dir)
     for i, m in ipairs(MODES) do
         if m == mode then mode = MODES[(i - 1 + dir) % #MODES + 1] return end
@@ -100,6 +100,9 @@ end
 local function gamesAction(p, action)
     if action == "left" or action == "right" then
         nextMode(action == "right" and 1 or -1)
+        sfx.play("select")
+    elseif action == "up" or action == "down" then  -- the other row (3 cards a row)
+        nextMode(action == "down" and 3 or -3)
         sfx.play("select")
     elseif action == "grab" then
         resetSelect()
@@ -298,6 +301,21 @@ local function drawModeIcon(m)
     elseif m == "flash" then            -- a fox peeking out from behind the bush
         art.animal("renard", 34, 20, -1, 0.7, false)
         image("cachette_buisson", -6, 34, 62)
+    elseif m == "nid" then              -- a little ten-frame: 6 hens and 4 empty nests
+        g.setColor(art.OUTLINE)
+        g.rectangle("fill", -58, -18, 116, 52, 8)
+        g.setColor(0.93, 0.82, 0.5)
+        g.rectangle("fill", -54, -14, 108, 44, 6)
+        for i = 1, 10 do
+            local x, y = -44 + ((i - 1) % 5) * 22, ((i - 1) < 5) and 4 or 26
+            g.setColor(0.7, 0.5, 0.25)
+            g.ellipse("fill", x, y - 2, 9, 4)
+            if i <= 6 then art.animal("poule", x, y, 1, 0.38, false) end
+        end
+        g.setColor(art.OUTLINE)
+        g.ellipse("fill", 40, -30, 12, 15)
+        g.setColor(1, 0.82, 0.2)
+        g.ellipse("fill", 40, -30, 10, 13)
     else                                -- three stepping stones and a squirrel hopping
         for i = 0, 2 do art.stone(i + 1, -38 + i * 38, 26, 36, nil, fonts.small, i) end
         g.setColor(1, 1, 1, 0.8)
@@ -411,23 +429,24 @@ end
 local function drawGames()
     drawBackdrop("choose_game")
     local t = love.timer.getTime()
-    for i, m in ipairs(MODES) do
-        local cx = 640 + (i - 2.5) * 293
+    for i, m in ipairs(MODES) do         -- 2 rows of 3 cards
+        local cx = 640 + ((i - 1) % 3 - 1) * 280
+        local top = math.floor((i - 1) / 3) == 0 and 150 or 372
         local on = m == mode
-        local bounce = on and math.abs(math.sin(t * 5)) * 8 or 0
+        local bounce = on and math.abs(math.sin(t * 5)) * 6 or 0
         if on then                       -- the chosen one glows
             g.setColor(1, 0.85, 0.3, 0.55 + 0.25 * math.sin(t * 6))
-            g.rectangle("fill", cx - 144, 156 - bounce, 288, 328, 34)
+            g.rectangle("fill", cx - 134, top - 12 - bounce, 268, 230, 30)
         end
-        art.paper(cx - 130, 170 - bounce, 260, 300)
+        art.paper(cx - 122, top - bounce, 244, 206)
         g.push()
-        g.translate(cx, 296 - bounce)
-        g.scale(2.1)
+        g.translate(cx, top + 92 - bounce)
+        g.scale(1.6)
         drawModeIcon(m)
         g.pop()
         g.setFont(fonts.big)
         g.setColor(art.OUTLINE)
-        g.printf(T("mode_" .. m), cx - 130, 398 - bounce, 260, "center")
+        g.printf(T("mode_" .. m), cx - 122, top + 150 - bounce, 244, "center")
     end
     art.hint({ "@dpad", T("choose_short"), "   ", "@a", T("go"), "   ", "@menu", T("menu_hint") },
         W / 2, 624, fonts.small)

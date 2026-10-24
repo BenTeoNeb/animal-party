@@ -29,8 +29,8 @@ Copied from `volcan/` (the two games now live their own lives):
 
 ## The games
 
-The game starts on a **games screen**: four big pictures, left / right to
-pick one, the bottom button to choose it. Then each kid picks Rami, Zina or
+The game starts on a **games screen**: big pictures in two rows, the stick
+or D-pad to pick one, the bottom button to choose it. Then each kid picks Rami, Zina or
 Lila (the right button goes back to the games). The level to start with is
 in the menu (Start).
 
@@ -107,9 +107,23 @@ back by itself. 5 trips make a round.
 - **Level 2**: taking away 1 to 3.
 - **Level 3**: both, up to 5 hops, from 0 to 10.
 
+### The Nest of 10 (Le nid de 10)
+
+In the middle of the meadow, a hen house shaped like a ten-frame (2 rows of
+5 straw nests), some nests already with a hen: bring the missing hens. Each
+one sits in an empty nest and is counted on from the ones already there
+("7, 8, 9, 10"); full, a golden egg appears. The bonds of 10, the base of
+the work on tens (the Singapore method's ten-frame). 5 nests make a round.
+
+- **Level 1**: bring them as you like; one too many is refused.
+- **Level 2**: bring exactly the missing number, all at once (count the
+  empty nests first).
+- **Level 3**: the nest has a straw roof and the sign says "7 + ? = 10"; not
+  right, the roof lifts a moment to show the nest.
+
 The games share the meadow, the kids and the animals (`world.lua`, which is
 also the pens game); the train and Peekaboo add their own rules
-(`train.lua`, `flash.lua`, `path.lua`) through the hooks listed at the top of
+(`train.lua`, `flash.lua`, `path.lua`, `nid.lua`) through the hooks listed at the top of
 `world.lua`.
 
 **The kids' voices**: record them saying the numbers and put the files in

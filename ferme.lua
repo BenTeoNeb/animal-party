@@ -80,24 +80,23 @@ function ferme.boxHeight(w)
     return im and w * im:getHeight() / im:getWidth() or w * 0.8
 end
 
--- What a kid carries, at the bottom (player 1 on the left, player 2 on the
--- right): the basket, the full boxes, and an open box filling with the loose
+-- What a kid carries, at the bottom (player 1 on the left, player 2 next to
+-- it): the basket, the full boxes, and an open box filling with the loose
 -- eggs (so you can see how many more make a ten).
 function ferme.basket(k, boxes, eggs)
-    local BW, OPEN = 62, 96                       -- a full box, the open one
-    local right = k.player == 2
-    local cols = math.min(5, math.max(1, boxes))
-    local rowsN = math.max(1, math.ceil(boxes / 5))
+    local BW, OPEN = 54, 96                       -- a full box, the open one
+    local cols = math.min(4, math.max(1, boxes))
+    local rowsN = math.max(1, math.ceil(boxes / 4))
     local w = 92 + (boxes > 0 and cols * (BW + 6) + 6 or 0) + OPEN + 24
-    local h = math.max(112, rowsN * 52 + 46)
-    local x0 = right and 1280 - 12 - w or 12
+    local h = math.max(112, rowsN * 46 + 50)
+    local x0 = k.player == 2 and 470 or 12        -- (the bottom right is the stall's)
     local y0 = 720 - 8 - h
     art.paper(x0, y0, w, h)
     ferme.image("panier", x0 + 48, y0 + h - 12, 78)
     local x = x0 + 92
-    for i = 1, boxes do                           -- the full boxes, 5 a row
-        local c, r = (i - 1) % 5, math.floor((i - 1) / 5)
-        ferme.box(x + 6 + c * (BW + 6) + BW / 2, y0 + 62 + r * 52, BW, 10)
+    for i = 1, boxes do                           -- the full boxes, 4 a row
+        local c, r = (i - 1) % 4, math.floor((i - 1) / 4)
+        ferme.box(x + 6 + c * (BW + 6) + BW / 2, y0 + 56 + r * 46, BW, 10)
     end
     if boxes > 0 then x = x + cols * (BW + 6) + 6 end
     ferme.box(x + 6 + OPEN / 2, y0 + h - 14, OPEN, eggs, eggs > 0 and { 1, 0.86, 0.35 } or nil)

@@ -26,7 +26,13 @@ local oeufs = {}
 local W, ctx
 local g = love.graphics
 
-local CART_X, CART_Y = 640, 712          -- the market stall (its feet)
+-- The market stall, big, at the bottom right (images/etal.png): its feet,
+-- its height, and where its table is in the drawing (parts of its width and
+-- height): the delivered boxes stand on it, in two rows of five.
+local CART_X, CART_Y, CART_H = 1065, 714, 360
+local TABLE_X1, TABLE_X2 = 0.09, 0.9
+local TABLE_ROWS = { 0.63, 0.705 }       -- the bottom of the back row and the front row
+local TABLE_BOX = 60
 local PICK = 34                          -- how close to an egg or a box picks it up
 local PER_ROUND = 3
 local COUNT_GAP = 0.4
@@ -56,6 +62,7 @@ local function spot()
         x, y = ctx.rand(50, 1230), ctx.rand(190, 560)
         local ok = not (x < 290 and y < 330) and not (x > 990 and y < 300)          -- the barn, the hay
             and not (math.abs(x - oeufs.START_X) < 60 and math.abs(y - oeufs.START_Y) < 50)
+            and not (x > 830 and y > 330)                                         -- the stall
         for _, it in ipairs(S.items) do
             if math.abs(it.x - x) < (it.kind == "box" and 90 or 52) and math.abs(it.y - y) < 46 then ok = false end
         end
@@ -159,7 +166,7 @@ function oeufs.arrive(k)
             end
         end
     end
-    local atCart = math.abs(k.x - CART_X) < 150 and k.y > CART_Y - 130
+    local atCart = math.abs(k.x - CART_X) < 210 and k.y > CART_Y - 150
     if atCart and not k.atCart and (k.boxes > 0 or k.eggs > 0) then deliver(k) end
     k.atCart = atCart
 end
@@ -185,7 +192,7 @@ function oeufs.update(dt)
             S.counted = S.counted + 1
             local n = math.min(S.counted, S.inBoxes) * 10 + math.max(0, S.counted - S.inBoxes)
             sfx.count(n, lang.current)
-            ctx.popup(tostring(n), CART_X, CART_Y - 250, S.counted <= S.inBoxes and { 1, 0.9, 0.4 } or { 0.6, 1, 0.5 })
+            ctx.popup(tostring(n), CART_X, CART_Y - CART_H - 10, S.counted <= S.inBoxes and { 1, 0.9, 0.4 } or { 0.6, 1, 0.5 })
             S.t = COUNT_GAP
         else
             S.sum = S.target .. " = " .. (S.tens * 10) .. " + " .. S.ones
@@ -218,19 +225,33 @@ function oeufs.drawGround()
     end
 end
 
--- The decor and the market stall (with what was delivered on its table).
+-- Where box i stands on the stall's table (1-5 the back row, 6-10 the front).
+local function onTable(i)
+    local im = art.image("etal")
+    local w = im and CART_H * im:getWidth() / im:getHeight() or CART_H
+    local left, top = CART_X - w / 2, CART_Y - CART_H
+    local col, row = (i - 1) % 5, math.floor((i - 1) / 5)
+    local span = (TABLE_X2 - TABLE_X1) * w
+    return left + TABLE_X1 * w + (col + 0.5) * span / 5, top + TABLE_ROWS[row + 1] * CART_H
+end
+
+-- The decor and the market stall, with what was delivered on its table: the
+-- boxes, then the box of loose eggs filling up, as the stall counts them.
 function oeufs.things(list)
     ferme.things(list, DECOR)
     table.insert(list, { y = CART_Y, draw = function()
         local shake = math.sin(S.nope * 40) * 6 * S.nope / 0.6
-        ferme.image("etal", CART_X + shake, CART_Y, 210)
-        if S.phase == "count" or S.phase == "done" then          -- the boxes on the table
+        ferme.image("etal", CART_X + shake, CART_Y, CART_H)
+        if S.phase == "count" or S.phase == "done" then
             local nb = math.min(S.counted, S.inBoxes)
             for i = 1, nb do
-                ferme.box(CART_X - 66 + ((i - 1) % 3) * 44 + shake, CART_Y - 78 - math.floor((i - 1) / 3) * 12, 42, 10)
+                local x, y = onTable(i)
+                ferme.box(x + shake, y, TABLE_BOX, 10)
             end
-            local ne = math.max(0, S.counted - S.inBoxes)
-            if S.inEggs > 0 then ferme.box(CART_X + 70 + shake, CART_Y - 78, 42, ne) end
+            if S.inEggs > 0 then
+                local x, y = onTable(S.inBoxes + 1)
+                ferme.box(x + shake, y, TABLE_BOX, math.max(0, S.counted - S.inBoxes))
+            end
         end
     end })
 end

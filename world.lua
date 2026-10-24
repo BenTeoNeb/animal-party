@@ -43,8 +43,8 @@ local TOP = 20
 -- middle: two at the top corners, one at the bottom in the middle. The sign
 -- is on the far side from the gate, the animals stand near the gate.
 local PENS = {
-    { x = 14, y = 4, w = 320, h = 232, gate = "bottom", roof = { 0.9, 0.25, 0.2 }, name = "rouge" },
-    { x = 946, y = 4, w = 320, h = 232, gate = "bottom", roof = { 0.25, 0.5, 0.95 }, name = "bleue" },
+    { x = 14, y = 4, w = 320, h = 262, gate = "bottom", roof = { 0.9, 0.25, 0.2 }, name = "rouge" },
+    { x = 946, y = 4, w = 320, h = 262, gate = "bottom", roof = { 0.25, 0.5, 0.95 }, name = "bleue" },
     { x = 480, y = 482, w = 320, h = 232, gate = "top", roof = { 1, 0.78, 0.15 }, name = "jaune" },
 }
 for _, r in ipairs(PENS) do
@@ -136,9 +136,33 @@ local function penArea(r)
     return r.x + 40, r.x + r.w - 60, sy + sh + 8 + ANIMAL_H, r.y + r.h - 20
 end
 
-local function spotIn(r)
+-- Animals don't walk over one another (easier to count them): their feet
+-- keep apart, GAP_X pixels side by side, less front to back (GAP_Y).
+local GAP_X, GAP_Y = 46, 26
+
+-- How close the nearest other animal is to (x, y), in GAP units (1 = touching).
+local function crowd(x, y, me)
+    local best = math.huge
+    for _, b in ipairs(world.animals or {}) do
+        if b ~= me and b.state ~= "follow" then
+            local dx, dy = (b.x - x) / GAP_X, (b.y - y) / GAP_Y
+            best = math.min(best, math.sqrt(dx * dx + dy * dy))
+        end
+    end
+    return best
+end
+
+-- The freest spot in a pen: the one furthest from the other animals, out of
+-- a few tries.
+local function spotIn(r, me)
     local x1, x2, y1, y2 = penArea(r)
-    return rand(x1, x2), rand(y1, y2)
+    local bx, by, bd = nil, nil, -1
+    for _ = 1, 12 do
+        local x, y = rand(x1, x2), rand(y1, y2)
+        local d = crowd(x, y, me)
+        if d > bd then bx, by, bd = x, y, d end
+    end
+    return bx, by
 end
 
 -- Trees are solid: push `o` out of every trunk. Each trunk is a flat ellipse at
@@ -375,7 +399,7 @@ local function newRound()
         for _ = 1, ask.start do
             local a = newAnimal(ask.kind)
             a.state, a.pen, a.counted = "home", i, true
-            a.x, a.y = spotIn(pen)
+            a.x, a.y = spotIn(pen, a)
             a.tx, a.ty = a.x, a.y
             table.insert(world.animals, a)
         end
@@ -529,7 +553,7 @@ end
 -- `delay` seconds later (one after the other, to count them out loud).
 local function enter(a, i, delay)
     a.state, a.pen, a.counted, a.countIn = "home", i, false, delay
-    a.tx, a.ty = spotIn(PENS[i])
+    a.tx, a.ty = spotIn(PENS[i], a)
     a.wait = rand(1, 2)
 end
 
@@ -685,6 +709,40 @@ local function wander(a, dt, minX, maxX, minY, maxY, speed)
     if not moveToward(a, a.tx, a.ty, speed, dt) then a.walk = 0 end
 end
 
+-- Two animals too close (feet inside each other's flat ellipse): push them
+-- apart, half each. Not the ones following a kid (they keep their line).
+-- Then put them back out of trees and the pond, or back inside their pen.
+local function separateAnimals()
+    local list = world.animals
+    for i = 1, #list do
+        local a = list[i]
+        if a.state ~= "follow" then
+            for j = i + 1, #list do
+                local b = list[j]
+                if b.state ~= "follow" then
+                    local dx, dy = (b.x - a.x) / GAP_X, (b.y - a.y) / GAP_Y
+                    local d = math.sqrt(dx * dx + dy * dy)
+                    if d < 1 then
+                        if d < 0.01 then dx, dy, d = love.math.random() - 0.5, 0.3, 0.3 end
+                        local push = (1 - d) / 2 / d
+                        a.x, a.y = a.x - dx * push * GAP_X, a.y - dy * push * GAP_Y
+                        b.x, b.y = b.x + dx * push * GAP_X, b.y + dy * push * GAP_Y
+                    end
+                end
+            end
+        end
+    end
+    for _, a in ipairs(list) do
+        if a.state == "home" and a.counted then
+            local x1, x2, y1, y2 = penArea(PENS[a.pen])
+            a.x, a.y = clamp(a.x, x1, x2), clamp(a.y, y1, y2)
+        elseif a.state == "free" then
+            blockByTrees(a)
+            blockByPond(a)
+        end
+    end
+end
+
 local function updateAnimal(a, dt)
     a.moving = false
     a.animT = a.animT + dt
@@ -713,8 +771,13 @@ local function updateAnimal(a, dt)
                 counted(a.pen, penCount(a.pen))
             end
         else
-            local x1, x2, y1, y2 = penArea(PENS[a.pen])
-            wander(a, dt, x1, x2, y1, y2, 30)
+            -- now and then, go to a free spot of the pen
+            a.wait = a.wait - dt
+            if a.wait <= 0 then
+                a.tx, a.ty = spotIn(PENS[a.pen], a)
+                a.wait = rand(4, 8)
+            end
+            if not moveToward(a, a.tx, a.ty, 30, dt) then a.walk = 0 end
         end
     end
     if a.moving and a.moving > 150 then setAnim(a, "course")
@@ -808,6 +871,7 @@ function world.update(dt)
     for _, k in ipairs(world.kids) do updateKid(k, dt) end
     separateKids()
     for _, a in ipairs(world.animals) do updateAnimal(a, dt) end
+    separateAnimals()
     if world.phase == "play" then journal.tick(world.kids) end
 end
 

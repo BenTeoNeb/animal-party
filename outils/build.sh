@@ -34,7 +34,7 @@ rm -f "$DIST/animal-party.love"
 # (journal.lua is left out: the game log is for us, not for the players;
 #  without it the game simply logs nothing)
 # (and the kids' voices counting, voix/, once they are recorded)
-(cd "$GAME" && zip -q -9 -r "$DIST/animal-party.love" ./*.lua icone.png images $(test -d voix && echo voix) \
+(cd "$GAME" && zip -q -9 -r "$DIST/animal-party.love" ./*.lua icone.png images fonts $(test -d voix && echo voix) \
     -x "images/_*" "*.DS_Store" "./journal.lua")
 zip -q -j "$DIST/animal-party.love" "$HERE/LICENSE"      # the license travels with the game
 echo "OK  dist/animal-party.love ($(du -h "$DIST/animal-party.love" | cut -f1))"

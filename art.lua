@@ -391,8 +391,75 @@ end
 -- Fonts are made for the real size of the screen (the game is drawn at 1280x720
 -- and scaled up), so text stays sharp up to 4K. art.fontScale is set by main.lua.
 art.fontScale = 1
-function art.font(size)
+-- Two fonts (fonts/, SIL Open Font License): Andika, made for children who
+-- learn to read (school-shaped letters and numbers), for every text and
+-- number; Fredoka, round and chunky like the drawings, for titles and names
+-- (face = "titre"). Without them, LÖVE's own font.
+local FACES = { texte = "fonts/Andika-Bold.ttf", titre = "fonts/Fredoka-Bold.ttf" }
+function art.font(size, face)
+    local file = FACES[face or "texte"]
+    if file and love.filesystem.getInfo(file) then
+        return g.newFont(file, size, "normal", art.fontScale)
+    end
     return g.newFont(size, "normal", art.fontScale)
+end
+
+-- The UI, drawn like the rest of the game: the same dark-brown outline, warm
+-- wood and cream. art.panel: a wooden plank (for boxes, counters, signs);
+-- art.paper: a cream face in a wooden frame (for the menu); art.disk: the one
+-- look of the numbers on things (a round tag with the number), coloured:
+art.OUTLINE = { 0.23, 0.14, 0.09 }
+art.COLORS = {
+    todo = { 1, 0.86, 0.4 },        -- yellow: still to do
+    ok = { 0.62, 0.88, 0.5 },       -- green: right
+    over = { 1, 0.55, 0.45 },       -- red: too many / not right
+    plain = { 1, 0.97, 0.88 },      -- cream: just a number
+    off = { 0.75, 0.73, 0.7 },      -- grey: not this one
+}
+
+local function roundBox(x, y, w, h, r, color, a)
+    g.setColor(color[1], color[2], color[3], (color[4] or 1) * (a or 1))
+    g.rectangle("fill", x, y, w, h, r)
+end
+
+function art.panel(x, y, w, h, a)
+    a = a or 1
+    local r = math.min(16, h / 2)
+    roundBox(x + 2, y + 5, w, h, r, { 0, 0, 0, 0.22 }, a)                  -- shadow
+    roundBox(x - 3, y - 3, w + 6, h + 6, r + 3, art.OUTLINE, a)
+    roundBox(x, y, w, h, r, { 0.7, 0.46, 0.26 }, a)                         -- wood
+    roundBox(x + 3, y + 3, w - 6, h * 0.42, r - 2, { 0.8, 0.57, 0.34 }, a)  -- light from the top
+    g.setColor(0.55, 0.34, 0.18, 0.55 * a)                                  -- grain
+    g.setLineWidth(2)
+    for i = 1, math.floor(h / 14) do
+        local ly = y + i * h / (math.floor(h / 14) + 1)
+        local x1 = x + 12 + ((i * 37 + x) % 40)
+        local x2 = x + w - 12 - ((i * 53 + y) % 50)
+        if x2 > x1 + 20 then g.line(x1, ly, x2, ly) end
+    end
+end
+
+function art.paper(x, y, w, h, a)
+    art.panel(x, y, w, h, a)
+    roundBox(x + 10, y + 10, w - 20, h - 20, 12, { 0.99, 0.95, 0.85 }, a)
+end
+
+-- A number tag: a disk of colour `kind` (art.COLORS) with the number in dark
+-- brown. font: the font for the number (its size goes with r).
+function art.disk(text, x, y, r, kind, font, a)
+    a = a or 1
+    local c = art.COLORS[kind] or kind
+    g.setColor(0, 0, 0, 0.2 * a)
+    g.circle("fill", x + 1, y + 3, r + 3)
+    g.setColor(art.OUTLINE[1], art.OUTLINE[2], art.OUTLINE[3], a)
+    g.circle("fill", x, y, r + 3)
+    g.setColor(c[1], c[2], c[3], a)
+    g.circle("fill", x, y, r)
+    g.setColor(1, 1, 1, 0.35 * a)
+    g.arc("fill", x, y, r * 0.8, math.pi * 1.1, math.pi * 1.6)             -- a little shine
+    g.setFont(font)
+    g.setColor(art.OUTLINE[1], art.OUTLINE[2], art.OUTLINE[3], a)
+    g.printf(tostring(text), x - r * 2, y - font:getHeight() / 2, r * 4, "center")
 end
 
 local glyphFont
@@ -467,6 +534,7 @@ function art.hint(parts, cx, y, font, color)
         total = total + widths[i]
     end
     local x = cx - total / 2
+    art.panel(x - 14, y - 21, total + 28, 42)          -- on a little plank
     for i, p in ipairs(parts) do
         if p:sub(1, 1) == "@" then
             art.glyph(p:sub(2), x + widths[i] / 2, y)

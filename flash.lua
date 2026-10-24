@@ -263,20 +263,18 @@ function flash.drawGround()
     for _, st in ipairs(S.stones) do
         local shake = math.sin(st.nope * 40) * 6 * st.nope / 0.6
         local x, y = st.x + shake, st.y
-        local fill = st.right and { 0.62, 0.88, 0.5 } or st.off and { 0.62, 0.6, 0.58 } or { 0.86, 0.84, 0.8 }
         g.setColor(0, 0, 0, 0.18)
         g.ellipse("fill", x, y + 10, STONE_R + 6, STONE_R * 0.5)
         g.setColor(OUTLINE)
         g.ellipse("fill", x, y, STONE_R + 4, STONE_R * 0.62 + 4)
-        g.setColor(fill)
+        g.setColor(0.8, 0.78, 0.74)
         g.ellipse("fill", x, y, STONE_R, STONE_R * 0.62)
         if st.stand > 0 then
             g.setColor(1, 0.85, 0.3)
             g.setLineWidth(6)
             g.arc("line", "open", x, y - 4, STONE_R + 12, -math.pi / 2, -math.pi / 2 + math.pi * 2 * st.stand / STAND)
         end
-        ctx.outlined(tostring(st.value), ctx.fonts.big, x - 40, y - 28, 80,
-            st.off and { 0.8, 0.8, 0.8 } or { 1, 0.92, 0.45 })
+        art.disk(st.value, x, y - 6, 26, st.right and "ok" or st.off and "off" or "plain", ctx.fonts.disk)
     end
 end
 
@@ -285,8 +283,7 @@ function flash.drawOnAnimal() end
 -- At the top: the right answers of this round, as little stars.
 function flash.drawHud()
     local x0 = 640 - (PER_ROUND - 1) * 22
-    g.setColor(0.2, 0.12, 0.08, 0.6)
-    g.rectangle("fill", x0 - 30, 8, (PER_ROUND - 1) * 44 + 60, 44, 18)
+    art.panel(x0 - 30, 8, (PER_ROUND - 1) * 44 + 60, 44)
     for i = 1, PER_ROUND do art.star(x0 + (i - 1) * 44, 30, 15, i <= S.good) end
 end
 

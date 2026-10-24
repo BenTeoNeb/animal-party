@@ -185,33 +185,32 @@ function path.drawGround()
     for n = 0, STONES - 1 do
         local x, y = stoneAt(n)
         local lo, hi = math.min(S.start, S.at), math.max(S.start, S.at)
-        local fill = { 0.86, 0.84, 0.8 }
-        if S.phase == "together" and n == S.at then fill = { 0.62, 0.88, 0.5 }
-        elseif n ~= S.start and n >= lo and n <= hi then fill = { 1, 0.86, 0.45 } end
+        local kind = "plain"
+        if S.phase == "together" and n == S.at then kind = "ok"
+        elseif n ~= S.start and n >= lo and n <= hi then kind = "todo" end
         g.setColor(0, 0, 0, 0.18)
         g.ellipse("fill", x, y + 8, STONE_R + 5, STONE_R * 0.5)
         g.setColor(OUTLINE)
         g.ellipse("fill", x, y, STONE_R + 4, STONE_R * 0.62 + 4)
-        g.setColor(fill)
+        g.setColor(0.8, 0.78, 0.74)
         g.ellipse("fill", x, y, STONE_R, STONE_R * 0.62)
         if n == S.start then
             g.setColor(0.3, 0.55, 0.95)
             g.setLineWidth(5)
             g.ellipse("line", x, y, STONE_R + 9, STONE_R * 0.62 + 8)
         end
-        ctx.outlined(tostring(n), ctx.fonts.board, x - 30, y - 19, 60, { 1, 1, 1 })
+        art.disk(n, x, y - 4, 19, kind, ctx.fonts.badge)
     end
 end
 
 -- The sign at the top: "2 + 3 = ?", with one dot per hop under the 3 (they
 -- fill as the animal hops), and the stars of the round's trips.
 function path.drawHud()
-    local x0, y0, w, h = 640 - 230, 6, 460, 112
-    g.setColor(0.2, 0.12, 0.08, 0.65)
-    g.rectangle("fill", x0, y0, w, h, 22)
+    local x0, y0, w, h = 640 - 230, 6, 460, 120
+    art.panel(x0, y0, w, h)
     local f = ctx.fonts.sign
     local function at(text, cx, color)
-        ctx.outlined(text, f, cx - 60, y0 + 6, 120, color)
+        ctx.outlined(text, f, cx - 60, y0 + 46 - f:getHeight() / 2, 120, color)
     end
     at(tostring(S.start), x0 + 60, { 0.6, 0.8, 1 })
     at(S.dir > 0 and "+" or "-", x0 + 135, { 1, 1, 1 })
@@ -225,12 +224,13 @@ function path.drawHud()
     for i = 1, S.n do
         local full = i <= S.hops
         g.setColor(OUTLINE)
-        g.circle("fill", d0 + (i - 1) * dx, y0 + 92, 8)
+        g.circle("fill", d0 + (i - 1) * dx, y0 + 100, 8)
         if full then g.setColor(1, 0.85, 0.3) else g.setColor(0.95, 0.92, 0.85) end
-        g.circle("fill", d0 + (i - 1) * dx, y0 + 92, 6)
+        g.circle("fill", d0 + (i - 1) * dx, y0 + 100, 6)
     end
     -- the trips of this round
-    for i = 1, PER_ROUND do art.star(x0 + w + 30, y0 + 14 + (i - 1) * 22, 9, i <= S.good) end
+    art.panel(x0 + w + 12, y0, 38, h)
+    for i = 1, PER_ROUND do art.star(x0 + w + 31, y0 + 16 + (i - 1) * 22, 9, i <= S.good) end
 end
 
 return path

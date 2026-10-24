@@ -282,11 +282,8 @@ end
 -- next number to find sparkles when the kids have been looking for a while.
 function train.drawOnAnimal(a, shake)
     if not a.number or a.state == "board" then return end
-    local x, y = a.x + (shake or 0), a.y - art.height(a.kind) * 1.2 - 18
-    shape("circle", { 1, 0.98, 0.9 }, x, y, 16)
-    g.setFont(ctx.fonts.badge)
-    g.setColor(OUTLINE)
-    g.printf(tostring(a.number), x - 20, y - ctx.fonts.badge:getHeight() / 2, 40, "center")
+    local x, y = a.x + (shake or 0), a.y - art.height(a.kind) * 1.2 - 22
+    art.disk(a.number, x, y, 19, "plain", ctx.fonts.badge)
     if W.hintT > HINT_AFTER and a.number == train.nextNumber() and a.state == "free" then
         local t = W.time * 5
         art.star(x + 22, y - 16 - math.abs(math.sin(t)) * 8, 9, true)
@@ -300,8 +297,7 @@ function train.drawHud()
     local n = #W.seq
     local step = 56
     local x0 = 640 - (n - 1) * step / 2
-    g.setColor(0.2, 0.12, 0.08, 0.6)
-    g.rectangle("fill", x0 - 40, 8, (n - 1) * step + 80, 64, 22)
+    art.panel(x0 - 40, 8, (n - 1) * step + 80, 64)
     local nextN = train.nextNumber()
     for i, num in ipairs(W.seq) do
         local x, y = x0 + (i - 1) * step, 40
@@ -312,18 +308,15 @@ function train.drawHud()
                 elseif a.state == "follow" then state = "follow" end
             end
         end
-        local r, color = 20, { 0.85, 0.82, 0.75 }
-        if state == "in" then color = { 0.55, 0.85, 0.45 }
-        elseif state == "follow" then color = { 1, 0.85, 0.35 }
+        local r, kind = 20, "off"
+        if state == "in" then kind = "ok"
+        elseif state == "follow" then kind = "todo"
         elseif num == nextN and W.phase == "play" then
             local shake = math.sin(W.boardNope * 40) * 5 * W.boardNope / 0.6
             x = x + shake
-            r, color = 24 + math.sin(W.time * 6) * 2, { 1, 1, 1 }
+            r, kind = 24 + math.sin(W.time * 6) * 2, "plain"
         end
-        shape("circle", color, x, y, r)
-        g.setFont(ctx.fonts.board)
-        g.setColor(OUTLINE)
-        g.printf(tostring(num), x - 30, y - ctx.fonts.board:getHeight() / 2, 60, "center")
+        art.disk(num, x, y, r, kind, ctx.fonts.board)
     end
 end
 

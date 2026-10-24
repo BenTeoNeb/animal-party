@@ -17,6 +17,12 @@ Copied from `volcan/` (the two games now live their own lives):
   and houses, the pond and fish, the volcano, stones and forest props. The
   style reference (`planches/reference.jpeg`) and `art.json` are kept so new
   drawings made with the `game-art` skill match the old ones.
+- **Fonts** (`fonts/`, SIL Open Font License, see the OFL files there):
+  Andika, made by SIL for children learning to read, for every text and
+  number; Fredoka (a bold instance of the variable font), for the titles and
+  names. Boxes and signs are wooden planks drawn in code (`art.panel`,
+  `art.paper`), and numbers on things are round tags (`art.disk`) with one
+  colour code: yellow to do, green right, red too many.
 - **Tools**: `outils/build.sh` (Mac, Windows, Linux / Bazzite, .love),
   `outils/linux/` (installer), `outils/icone/` (draws the icon from the
   game's images), and the image tools.

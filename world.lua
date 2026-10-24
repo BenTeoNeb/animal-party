@@ -328,8 +328,9 @@ function world.makeFonts()
     fonts.sign = art.font(60)
     fonts.big = art.font(44)
     fonts.small = art.font(20)
-    fonts.badge = art.font(22)
+    fonts.badge = art.font(26)
     fonts.board = art.font(30)
+    fonts.disk = art.font(36)
 end
 
 function world.load()
@@ -967,12 +968,8 @@ local function drawSign(i)
     g.push()
     g.translate(shake, 0)
     local right = n == pen.target
-    g.setColor(0.23, 0.14, 0.09, a)
-    g.rectangle("fill", x - 4, y - 4, w + 8, h + 8, 14)
-    if right then g.setColor(0.72, 0.9, 0.5, a) else g.setColor(0.93, 0.78, 0.55, a) end
-    g.rectangle("fill", x, y, w, h, 11)
-    local color = right and { 0.75, 1, 0.6, a } or n > pen.target and { 1, 0.45, 0.35, a } or { 1, 0.9, 0.4, a }
-    outlined(tostring(pen.target), fonts.sign, x, y + h / 2 - 38, 58, color)
+    art.panel(x, y, w, h, a)
+    art.disk(pen.target, x + 34, y + h / 2, 25, right and "ok" or n > pen.target and "over" or "todo", fonts.disk, a)
     art.tint = { 1, 1, 1, a }
     art.animal(pen.kind, x + 88, y + h - 8, 1, 1.05, false)
     art.tint = nil
@@ -1005,9 +1002,8 @@ local function hud()
     local shown = math.min(n, 12)
     local x0 = START_X - (shown - 1) * 17
     if world.rules then x0 = 40 end          -- (the games' own counters are in the middle)
-    g.setColor(0.2, 0.12, 0.08, 0.55)
-    g.rectangle("fill", x0 - 24, 6, (shown - 1) * 34 + 48, 40, 16)
-    for s = 1, shown do art.star(x0 + (s - 1) * 34, 26, 14, true) end
+    art.panel(x0 - 24, 8, (shown - 1) * 34 + 48, 38)
+    for s = 1, shown do art.star(x0 + (s - 1) * 34, 27, 14, true) end
 end
 
 function world.draw()

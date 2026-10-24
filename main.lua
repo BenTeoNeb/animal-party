@@ -189,8 +189,8 @@ makeFonts = function()
     fontScale = s
     art.fontScale = s
     art.resetFonts()
-    fonts.title = art.font(54)
-    fonts.big = art.font(36)
+    fonts.title = art.font(58, "titre")
+    fonts.big = art.font(38, "titre")
     fonts.mid = art.font(24)
     fonts.small = art.font(20)
     world.makeFonts()
@@ -286,7 +286,7 @@ local function drawModeIcon(m)
             g.ellipse("fill", -36 + i * 34, 18, 14, 8)
             g.setFont(fonts.small)
             g.setColor(0.23, 0.14, 0.09)
-            g.printf(tostring(i + 1), -46 + i * 34, 6, 20, "center")
+            g.printf(tostring(i + 1), -46 + i * 34, 17 - fonts.small:getHeight() / 2, 20, "center")
         end
         art.animal("ecureuil", -2, -8, 1, 0.75, false)
     elseif m == "flash" then            -- a bush with two eyes peeking out
@@ -332,9 +332,8 @@ local function drawBackdrop(subtitle)
     outlined(T(subtitle), fonts.mid, 0, 110, W)
 
     -- sound on/off (View / Select button) and language (shoulder buttons), top left
-    g.setColor(0.2, 0.12, 0.08, 0.6)
-    g.rectangle("fill", 14, 12, 250, 38, 12)
-    g.rectangle("fill", 14, 56, 250, 38, 12)
+    art.panel(14, 12, 250, 38)
+    art.panel(14, 56, 250, 38)
     art.glyph("view", 38, 31)
     outlined(T(soundOn and "sound_on" or "sound_off"), fonts.small, 56, 20, 200,
         soundOn and { 0.6, 1, 0.6 } or { 0.85, 0.85, 0.85 })
@@ -342,8 +341,7 @@ local function drawBackdrop(subtitle)
     art.glyph("lr", 56, 75, 0.75)
     outlined(T("language"), fonts.small, 82, 64, 180, { 1, 0.95, 0.6 })
     -- the level (changed in the menu)
-    g.setColor(0.2, 0.12, 0.08, 0.6)
-    g.rectangle("fill", 14, 100, 250, 38, 12)
+    art.panel(14, 100, 250, 38)
     outlined(levelName(), fonts.small, 14, 108, 250, { 0.6, 0.9, 1 })
 end
 
@@ -355,19 +353,19 @@ local function drawGames()
         local cx = 640 + (i - 2.5) * 293
         local on = m == mode
         local bounce = on and math.abs(math.sin(t * 5)) * 8 or 0
-        g.setColor(0.2, 0.12, 0.08, on and 0.75 or 0.5)
-        g.rectangle("fill", cx - 130, 170 - bounce, 260, 300, 24)
-        if on then
-            g.setColor(PLAYER_COLORS[1])
-            g.setLineWidth(8)
-            g.rectangle("line", cx - 130, 170 - bounce, 260, 300, 24)
+        if on then                       -- the chosen one glows
+            g.setColor(1, 0.85, 0.3, 0.55 + 0.25 * math.sin(t * 6))
+            g.rectangle("fill", cx - 144, 156 - bounce, 288, 328, 34)
         end
+        art.paper(cx - 130, 170 - bounce, 260, 300)
         g.push()
         g.translate(cx, 300 - bounce)
         g.scale(2.3)
         drawModeIcon(m)
         g.pop()
-        outlined(T("mode_" .. m), fonts.big, cx - 130, 404 - bounce, 260, on and { 1, 0.9, 0.4 } or { 1, 1, 1 })
+        g.setFont(fonts.big)
+        g.setColor(art.OUTLINE)
+        g.printf(T("mode_" .. m), cx - 130, 398 - bounce, 260, "center")
     end
     art.hint({ "@dpad", T("choose_short"), "   ", "@a", T("go"), "   ", "@menu", T("menu_hint") },
         W / 2, 624, fonts.small)
@@ -407,13 +405,14 @@ local function drawSelect()
     end
 
     -- the game chosen, top right (B goes back to the games)
-    g.setColor(0.2, 0.12, 0.08, 0.6)
-    g.rectangle("fill", 1000, 12, 266, 82, 14)
+    art.paper(1000, 12, 266, 82)
     g.push()
     g.translate(1060, 60)
     drawModeIcon(mode)
     g.pop()
-    outlined(T("mode_" .. mode), fonts.mid, 1108, 34, 150, { 1, 0.95, 0.6 })
+    g.setFont(fonts.mid)
+    g.setColor(art.OUTLINE)
+    g.printf(T("mode_" .. mode), 1108, 36, 150, "center")
     -- how to play, with the buttons as icons
     art.hint({ "@dpad", T("choose_short"), "   ", "@a", T("go"), "   ", "@b", T("back_short"), "   ",
         "@menu", T("menu_hint") }, W / 2, 624, fonts.small)
@@ -428,24 +427,19 @@ drawMenu = function()
     local items = menuItems()
     local ph = 120 + #items * 62
     local py = (H - ph) / 2
-    g.setColor(0.98, 0.94, 0.82)
-    g.rectangle("fill", 390, py, 500, ph, 28)
-    g.setColor(0.6, 0.4, 0.2)
-    g.setLineWidth(6)
-    g.rectangle("line", 390, py, 500, ph, 28)
-    outlined(T("menu"), fonts.big, 390, py + 22, 500, { 1, 0.8, 0.2 })
+    art.paper(390, py, 500, ph)
+    outlined(T("menu"), fonts.big, 390, py + 20, 500, { 1, 0.8, 0.2 })
     for i, item in ipairs(items) do
         local y = py + 92 + (i - 1) * 62
         if i == menu.sel then
-            g.setColor(1, 0.8, 0.25)
+            g.setColor(art.OUTLINE)
+            g.rectangle("fill", 417, y - 9, 446, 56, 18)
+            g.setColor(art.COLORS.todo)
             g.rectangle("fill", 420, y - 6, 440, 50, 16)
-            g.setColor(0.6, 0.4, 0.2)
-            g.setLineWidth(3)
-            g.rectangle("line", 420, y - 6, 440, 50, 16)
         end
         g.setFont(fonts.mid)
-        g.setColor(0.35, 0.22, 0.12)
-        g.printf(menuLabel(item), 390, y + 4, 500, "center")
+        g.setColor(art.OUTLINE)
+        g.printf(menuLabel(item), 390, y + 19 - fonts.mid:getHeight() / 2, 500, "center")
     end
 end
 

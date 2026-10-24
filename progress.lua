@@ -35,8 +35,8 @@ end
 
 -- Where to start: the menu's level gives a floor (1, a third, two thirds of
 -- the ladder); the kids' saved step minus one (the lowest of the kids
--- playing) may start higher.
-function progress.start(mode, kidIds, menuLevel, steps)
+-- playing; in the challenge, the saved step itself) may start higher.
+function progress.start(mode, kidIds, menuLevel, steps, challenge)
     load()
     local floor = ({ 1, math.floor(steps / 3) + 1, math.floor(2 * steps / 3) + 1 })[menuLevel or 1] or 1
     local low
@@ -44,7 +44,7 @@ function progress.start(mode, kidIds, menuLevel, steps)
         local s = saved[mode] and saved[mode][id]
         if s then low = math.min(low or s, s) end
     end
-    local start = math.max(floor, low and low - 1 or 1)
+    local start = math.max(floor, low and (challenge and low or low - 1) or 1)
     return math.max(1, math.min(steps, start))
 end
 

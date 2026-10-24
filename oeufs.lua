@@ -96,7 +96,8 @@ local function newDelivery()
     local target = love.math.random(st.from, st.to)
     local tens, ones = math.floor(target / 10), target % 10
     S.target, S.tens, S.ones = target, tens, ones
-    S.items, S.phase, S.t, S.nope, S.help, S.counted, S.sum = {}, "play", 0, 0, st.pics, 0, nil
+    -- (in the challenge, the boxes-and-eggs pictures only come after a mistake)
+    S.items, S.phase, S.t, S.nope, S.help, S.counted, S.sum = {}, "play", 0, 0, st.pics and not W.challenge, 0, nil
     S.clean = true
     local boxes, eggs
     boxes = tens + (W.level == 1 and 1 or 2)

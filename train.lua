@@ -196,7 +196,7 @@ function train.update(dt)
     if W.phase == "play" then
         local before = W.hintT
         W.hintT = W.hintT + dt
-        if before < HINT_AFTER and W.hintT >= HINT_AFTER then
+        if before < HINT_AFTER and W.hintT >= HINT_AFTER and not W.challenge then
             ctx.journal.log("aide", { numero = train.nextNumber() })
         end
     elseif W.phase == "party" and W.partyTime > 1 then
@@ -329,7 +329,9 @@ function train.drawOnAnimal(a, shake)
     if not a.number or a.state == "board" then return end
     local x, y = a.x + (shake or 0), a.y - art.height(a.kind) * 1.2 - 22
     art.disk(a.number, x, y, 19, "plain", ctx.fonts.badge)
-    if W.hintT > HINT_AFTER and a.number == train.nextNumber() and a.state == "free" then
+    -- (in the challenge: only after a mistake)
+    if W.hintT > HINT_AFTER and (not W.challenge or not W.trainClean) and a.number == train.nextNumber()
+        and a.state == "free" then
         local t = W.time * 5
         art.star(x + 22, y - 16 - math.abs(math.sin(t)) * 8, 9, true)
         art.star(x - 22, y - 10 - math.abs(math.cos(t)) * 8, 7, true)

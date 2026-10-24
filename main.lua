@@ -30,6 +30,11 @@ local state = "games"      -- "games" (choose the game), "select" (choose the ki
 local level = 1           -- 1 count, 2 add, 3 take away (chosen in the menu)
 local mode = "fete"       -- "fete" (the pens), "train", "flash" or "path" (the games screen)
 local MODES = { "fete", "train", "flash", "path", "nid", "oeufs" }
+-- How to play, for all the games: "learn" (all the helps, gentle) or
+-- "challenge" (faster steps, helps only after a mistake, a streak counter).
+-- Chosen at the top of the games screen (up from the cards), or in the menu.
+local playMode = "learn"
+local gamesFocus = "cards"     -- on the games screen: "cards" or "playmode" (the selector)
 local function nextMode(dir)
     for i, m in ipairs(MODES) do
         if m == mode then mode = MODES[(i - 1 + dir) % #MODES + 1] return end
@@ -69,7 +74,7 @@ local function startIfReady()
     for p = 1, 2 do
         if pick[p].joined then table.insert(chosen, { player = p, kid = pick[p].choice }) end
     end
-    world.start(chosen, level, mode)
+    world.start(chosen, level, mode, playMode)
     state = "play"
 end
 
@@ -97,11 +102,29 @@ local function selectAction(p, action)
 end
 
 -- The games screen: left / right picks a game, the bottom button chooses it.
+local function modeIndex()
+    for i, m in ipairs(MODES) do if m == mode then return i end end
+    return 1
+end
+
 local function gamesAction(p, action)
+    if gamesFocus == "playmode" then             -- the Learn / Challenge selector
+        if action == "left" or action == "right" or action == "grab" then
+            playMode = playMode == "learn" and "challenge" or "learn"
+            sfx.play("select")
+        elseif action == "down" then
+            gamesFocus = "cards"
+            sfx.play("select")
+        end
+        return
+    end
     if action == "left" or action == "right" then
         nextMode(action == "right" and 1 or -1)
         sfx.play("select")
-    elseif action == "up" or action == "down" then  -- the other row (3 cards a row)
+    elseif action == "up" and modeIndex() <= 3 then  -- up from the top row: the selector
+        gamesFocus = "playmode"
+        sfx.play("select")
+    elseif action == "up" or (action == "down" and modeIndex() <= 3) then  -- the other row
         nextMode(action == "down" and 3 or -3)
         sfx.play("select")
     elseif action == "grab" then
@@ -120,6 +143,7 @@ local menuStickOut = {}
 local function menuItems()
     local items = { "resume" }
     if state == "play" then table.insert(items, "to_title") end
+    if state ~= "play" then table.insert(items, "playmode") end
     if state ~= "play" then table.insert(items, "level") end
     table.insert(items, "fullscreen")
     table.insert(items, "sound")
@@ -130,6 +154,7 @@ end
 
 local function menuLabel(item)
     if item == "level" then return T("level_item", levelName()) end
+    if item == "playmode" then return T("playmode_item", T("playmode_" .. playMode)) end
     if item == "fullscreen" then return T(love.window.getFullscreen() and "fullscreen_on" or "fullscreen_off") end
     if item == "sound" then return T(soundOn and "sound_on" or "sound_off") end
     if item == "language" then return T("language_item") end
@@ -151,6 +176,8 @@ local function menuChoose()
         menu = nil
         resetSelect()
         state = "games"
+    elseif item == "playmode" then
+        playMode = playMode == "learn" and "challenge" or "learn"
     elseif item == "level" then
         level = level % 3 + 1
     elseif item == "fullscreen" then
@@ -328,6 +355,7 @@ local function drawModeIcon(m)
 end
 
 -- The pause menu's pictures, one per line, around (x, y).
+local drawPlayIcon                  -- (below)
 local function drawMenuIcon(item, x, y)
     local o = art.OUTLINE
     if item == "resume" then            -- a play arrow
@@ -337,6 +365,8 @@ local function drawMenuIcon(item, x, y)
         g.polygon("fill", x - 6, y - 8, x - 6, y + 8, x + 8, y)
     elseif item == "to_title" then      -- home: a little house
         image("maison_rouge", x, y + 16, 34)
+    elseif item == "playmode" then      -- the sprout or the cup
+        drawPlayIcon(playMode, x, y + 6)
     elseif item == "level" then         -- stars, as many as the level
         for i = 1, 3 do art.star(x - 16 + (i - 1) * 16, y, 8, i <= level) end
     elseif item == "fullscreen" then    -- a screen
@@ -408,7 +438,7 @@ local function drawBackdrop(subtitle)
     end
 
     outlined(T("title"), fonts.title, 0, 30, W, { 1, 0.85, 0.3 })
-    outlined(T(subtitle), fonts.mid, 0, 110, W)
+    if subtitle then outlined(T(subtitle), fonts.mid, 0, 110, W) end
 
     -- sound on/off (View / Select button) and language (shoulder buttons), top left
     art.panel(14, 12, 250, 38)
@@ -426,27 +456,74 @@ local function drawBackdrop(subtitle)
 end
 
 -- The games screen: four big cards with a picture, left / right to pick one.
+-- The two ways to play, as pictures: a sprout (learn), a cup (challenge).
+drawPlayIcon = function(pm, x, y)
+    local o = art.OUTLINE
+    if pm == "learn" then
+        g.setColor(o)
+        g.rectangle("fill", x - 3.5, y - 18, 7, 26, 3)
+        g.ellipse("fill", x - 12, y - 18, 13, 8)
+        g.ellipse("fill", x + 12, y - 22, 13, 8)
+        g.setColor(0.45, 0.78, 0.32)
+        g.rectangle("fill", x - 2, y - 17, 4, 24, 2)
+        g.ellipse("fill", x - 12, y - 18, 10.5, 5.5)
+        g.ellipse("fill", x + 12, y - 22, 10.5, 5.5)
+        g.setColor(0.6, 0.42, 0.25)
+        g.ellipse("fill", x, y + 8, 16, 6)
+    else
+        g.setColor(o)
+        g.rectangle("fill", x - 16, y - 24, 32, 22, 8)
+        g.rectangle("fill", x - 5, y - 4, 10, 10)
+        g.rectangle("fill", x - 13, y + 4, 26, 8, 3)
+        g.circle("line", x - 18, y - 15, 7)
+        g.circle("line", x + 18, y - 15, 7)
+        g.setColor(1, 0.8, 0.2)
+        g.rectangle("fill", x - 13, y - 21, 26, 17, 6)
+        g.rectangle("fill", x - 3, y - 4, 6, 9)
+        g.rectangle("fill", x - 10, y + 6, 20, 4, 2)
+    end
+end
+
+-- At the top of the games screen: Learn / Challenge, the chosen one lit.
+local function drawPlayModes(t)
+    local focused = gamesFocus == "playmode"
+    for i, pm in ipairs({ "learn", "challenge" }) do
+        local x = 640 + (i - 1.5) * 250 - 110
+        local on = pm == playMode
+        if on and focused then
+            g.setColor(1, 0.85, 0.3, 0.55 + 0.25 * math.sin(t * 6))
+            g.rectangle("fill", x - 8, 98, 236, 72, 22)
+        end
+        if on then art.paper(x, 104, 220, 60) else art.panel(x, 104, 220, 60, 0.75) end
+        drawPlayIcon(pm, x + 38, 142)
+        g.setFont(fonts.mid)
+        g.setColor(on and art.OUTLINE or { 1, 0.95, 0.85 })
+        g.printf(T("playmode_" .. pm), x + 64, 134 - fonts.mid:getHeight() / 2, 150, "center")
+    end
+end
+
 local function drawGames()
-    drawBackdrop("choose_game")
+    drawBackdrop(nil)
     local t = love.timer.getTime()
+    drawPlayModes(t)
     for i, m in ipairs(MODES) do         -- 2 rows of 3 cards
         local cx = 640 + ((i - 1) % 3 - 1) * 280
-        local top = math.floor((i - 1) / 3) == 0 and 150 or 372
-        local on = m == mode
+        local top = math.floor((i - 1) / 3) == 0 and 184 or 394
+        local on = m == mode and gamesFocus == "cards"
         local bounce = on and math.abs(math.sin(t * 5)) * 6 or 0
         if on then                       -- the chosen one glows
             g.setColor(1, 0.85, 0.3, 0.55 + 0.25 * math.sin(t * 6))
-            g.rectangle("fill", cx - 134, top - 12 - bounce, 268, 230, 30)
+            g.rectangle("fill", cx - 134, top - 12 - bounce, 268, 220, 30)
         end
-        art.paper(cx - 122, top - bounce, 244, 206)
+        art.paper(cx - 122, top - bounce, 244, 196)
         g.push()
-        g.translate(cx, top + 92 - bounce)
-        g.scale(1.6)
+        g.translate(cx, top + 86 - bounce)
+        g.scale(1.55)
         drawModeIcon(m)
         g.pop()
         g.setFont(fonts.big)
         g.setColor(art.OUTLINE)
-        g.printf(T("mode_" .. m), cx - 122, top + 150 - bounce, 244, "center")
+        g.printf(T("mode_" .. m), cx - 122, top + 140 - bounce, 244, "center")
     end
     art.hint({ "@dpad", T("choose_short"), "   ", "@a", T("go"), "   ", "@menu", T("menu_hint") },
         W / 2, 624, fonts.small)

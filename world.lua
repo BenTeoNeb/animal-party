@@ -498,7 +498,11 @@ function world.makeBiome(biome, z)
 end
 
 -- mode: "fete" (the pens, default), "train", "flash" or "path".
-function world.start(chosen, level, mode)
+-- playMode: "learn" (default) or "challenge" (faster steps, helps only after
+-- a mistake, a streak counter; world.challenge, read by the games too).
+function world.start(chosen, level, mode, playMode)
+    world.challenge = playMode == "challenge"
+    world.streak, world.streakFlash = 0, 0
     world.mode = MODES[mode] and mode or "fete"
     local R = MODES[world.mode]
     world.rules = R
@@ -546,7 +550,7 @@ function world.start(chosen, level, mode)
     -- the step to start on: from the menu's level and the kids' saved steps
     world.kidIds = kidNames
     world.steps = R and #R.STEPS or #STEPS
-    world.level = progress.start(world.mode, kidNames, level, world.steps)
+    world.level = progress.start(world.mode, kidNames, level, world.steps, world.challenge)
     world.ladder = { step = world.level }
     journal.start({ joueurs = #chosen, enfants = kidNames, mode = world.mode, niveau = world.level,
         langue = lang.current })
@@ -925,7 +929,15 @@ end
 function world.answer(clean)
     local up = PENS_UP
     if world.rules then up = world.rules.UP or 3 end
+    if world.challenge then up = math.max(1, up - 1) end        -- the challenge climbs faster
     local step, change = progress.answer(world.ladder, clean, world.steps, up)
+    -- the challenge's streak: right the first time in a row; every 5, a burst
+    world.streak = clean and world.streak + 1 or 0
+    if world.challenge and clean and world.streak % 5 == 0 then
+        world.streakFlash = 1.6
+        sfx.play("win")
+        stars(1180, 90, 18)
+    end
     journal.log("etape", { propre = clean, etape = step, change = change })
     if change ~= 0 then
         world.level = step
@@ -940,6 +952,7 @@ end
 function world.update(dt)
     world.time = world.time + dt
     world.stepFlash = math.max(0, (world.stepFlash or 0) - dt)
+    world.streakFlash = math.max(0, (world.streakFlash or 0) - dt)
     updateEffects(dt)
 
     if world.phase == "play" then
@@ -1074,8 +1087,37 @@ local function drawLadder()
     end
 end
 
+-- The challenge's streak, under the ladder: a little flame and the number of
+-- right answers in a row (it grows bigger every 5).
+local function drawStreak()
+    if not world.challenge then return end
+    local n = world.streak or 0
+    local pop = 1 + 0.6 * math.sin(math.min(1, (world.streakFlash or 0) / 1.6) * math.pi)
+    local x, y = 1210, 70
+    art.panel(1150, 44, 118, 52)
+    g.push()
+    g.translate(x - 30, y)
+    g.scale(pop)
+    local function drop(r, color)                               -- a round flame, its tip up
+        g.setColor(color)
+        g.circle("fill", 0, 5, r)
+        g.polygon("fill", -r * 0.97, 3, 0, 5 - r * 2.3, r * 0.97, 3)
+    end
+    drop(13, art.OUTLINE)                                       -- the flame
+    drop(10, n > 0 and { 1, 0.5, 0.15 } or { 0.6, 0.5, 0.4 })
+    g.push()
+    g.translate(0, 4)
+    drop(5, n > 0 and { 1, 0.88, 0.35 } or { 0.75, 0.68, 0.6 })
+    g.pop()
+    g.pop()
+    g.setFont(fonts.big)
+    g.setColor(art.OUTLINE)
+    g.printf(tostring(n), x - 14, y - fonts.big:getHeight() / 2, 60, "center")
+end
+
 local function hud()
     drawLadder()
+    drawStreak()
     local n = world.roundsWon
     if n == 0 then return end
     local shown = math.min(n, 12)

@@ -46,6 +46,17 @@ saved (`progres.lua` in the save folder), and the next game starts one step
 below it; the level in the menu is the lowest step to start from (1, a third
 or two thirds of the ladder). The levels below are where the ladders go.
 
+### Two ways to play: Learn and Challenge
+
+At the top of the games screen (up from the cards, or in the menu):
+
+- **Learn** (Apprendre, a sprout): everything above, with all the helps.
+- **Challenge** (Défi, a cup): one fewer right answer in a row to go up a
+  step, it starts at the saved step (not one below), and some helps only
+  come after a mistake (the boxes and eggs on the egg sign, the sparkle on
+  the train's next animal). A flame counts the right answers in a row, with
+  a burst of stars every 5.
+
 ### The pens
 
 Three pens stand around the meadow, each with a small sign: a number and an

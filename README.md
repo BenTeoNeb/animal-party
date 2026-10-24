@@ -78,16 +78,17 @@ the train whistles and leaves.
 
 ### Peekaboo! (Coucou !)
 
-The third game. A few animals hop out of the big bush in the middle, in a
-dice pattern, for a moment, then hide again: how many were there? Stand on
-the stone with that number. Right: they come out again and are counted
-together, one by one. Not right: the stone wobbles and greys, and they peek
-out again. 5 right answers make a round (the stars at the top). It trains
-seeing a small number at a glance, without counting one by one.
+Animals hop out of their hiding places (a berry bush, a flowery bush, a
+hollow log), in dice patterns, for a moment, then hide again: how many were
+there? Stand on the stepping stone with that number. Right: they come out
+again and are counted together, one by one, then the sum shows ("2 + 3 = 5").
+Not right: the stone wobbles and darkens, and they peek out again. After
+answering, the kid walks back to the start by itself. 5 right answers make a
+round. It trains seeing small numbers at a glance, then adding groups.
 
-- **Level 1**: 1 to 3 animals, out 3 seconds, 3 stones.
-- **Level 2**: 2 to 5 animals, 2.5 seconds, 3 stones.
-- **Level 3**: 3 to 6 animals, 2 seconds, 4 stones.
+- **Level 1**: one hiding place, 1 to 4 animals, 3 stones.
+- **Level 2**: two hiding places, 1 to 3 animals each, 3 stones.
+- **Level 3**: three hiding places, 1 to 3 animals each, 4 stones.
 
 ### The Number Path (Le chemin)
 

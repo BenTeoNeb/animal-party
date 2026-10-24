@@ -444,6 +444,42 @@ function art.paper(x, y, w, h, a)
     roundBox(x + 10, y + 10, w - 20, h - 20, 12, { 0.99, 0.95, 0.85 }, a)
 end
 
+-- A stepping stone with a number painted on it (images/gue1-3.png), its
+-- middle at (x, y), w wide. kind: a glow under it for its state ("ok" green,
+-- "todo" yellow, "start" blue, "over" red), or "off" (darker: not this one).
+local GLOWS = { ok = { 0.5, 1, 0.4 }, todo = { 1, 0.85, 0.3 }, start = { 0.35, 0.65, 1 }, over = { 1, 0.45, 0.35 } }
+function art.stone(n, x, y, w, kind, font, variant)
+    local im = art.image("gue" .. ((variant or n) % 3 + 1))
+    local h = im and w * im:getHeight() / im:getWidth() or w * 0.62
+    local glow = GLOWS[kind]
+    if glow then
+        for i = 3, 1, -1 do
+            g.setColor(glow[1], glow[2], glow[3], 0.22)
+            g.ellipse("fill", x, y + h * 0.08, w * 0.5 + i * 7, h * 0.42 + i * 5)
+        end
+    end
+    if im then
+        local sc = w / im:getWidth()
+        if kind == "off" then g.setColor(0.55, 0.55, 0.55) else g.setColor(1, 1, 1) end
+        g.draw(im, x, y, 0, sc, sc, im:getWidth() / 2, im:getHeight() / 2)
+    else
+        g.setColor(art.OUTLINE)
+        g.ellipse("fill", x, y, w / 2 + 3, h / 2 + 3)
+        g.setColor(kind == "off" and { 0.55, 0.53, 0.5 } or { 0.8, 0.78, 0.74 })
+        g.ellipse("fill", x, y, w / 2, h / 2)
+    end
+    -- the number, painted on the flat top (cream, with a dark outline)
+    local text, ty = tostring(n), y - h * 0.12 - font:getHeight() / 2
+    g.setFont(font)
+    g.setColor(art.OUTLINE)
+    for i = 0, 11 do
+        local a = i / 12 * math.pi * 2
+        g.printf(text, x - w / 2 + math.cos(a) * 2.5, ty + math.sin(a) * 2.5, w, "center")
+    end
+    if kind == "off" then g.setColor(0.75, 0.73, 0.7) else g.setColor(1, 0.96, 0.85) end
+    g.printf(text, x - w / 2, ty, w, "center")
+end
+
 -- A number tag: a disk of colour `kind` (art.COLORS) with the number in dark
 -- brown. font: the font for the number (its size goes with r).
 function art.disk(text, x, y, r, kind, font, a)

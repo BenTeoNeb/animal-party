@@ -690,6 +690,12 @@ local function updateKid(k, dt)
     end
     local dx, dy = input.move(k.player)
     if world.phase ~= "play" then dx, dy = 0, 0 end
+    -- sent somewhere by the game (k.autoTo = { x, y }): walk there by itself
+    if k.autoTo then
+        local ax, ay = k.autoTo[1] - k.x, k.autoTo[2] - k.y
+        local d = math.sqrt(ax * ax + ay * ay)
+        if d < 6 then k.autoTo, dx, dy = nil, 0, 0 else dx, dy = ax / d, ay / d end
+    end
     local len = math.sqrt(dx * dx + dy * dy)
     if len > 1 then dx, dy = dx / len, dy / len end
     local leading = #k.followers > 0

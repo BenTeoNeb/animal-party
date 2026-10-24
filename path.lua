@@ -20,7 +20,6 @@ local W, ctx
 local g = love.graphics
 
 local STONES = 11                -- 0 to 10
-local STONE_R = 34
 local HOP_TIME = 0.4             -- seconds in the air
 local NEAR = 150                 -- how close to the animal a kid must be to make it hop
 local PER_ROUND = 5              -- trips in a round
@@ -170,8 +169,8 @@ function path.drawOnAnimal() end
 
 local OUTLINE = { 0.23, 0.14, 0.09 }
 
--- The path: a soft dirt trail, and the stones on it. The start stone has a
--- blue ring, the ones the animal hopped on are yellow, the landing one green.
+-- The path: a soft dirt trail, and the stepping stones on it. The start stone
+-- glows blue, the ones the animal hopped on yellow, the landing one green.
 function path.drawGround()
     g.setColor(0.78, 0.66, 0.45, 0.6)
     g.setLineWidth(46)
@@ -185,21 +184,11 @@ function path.drawGround()
     for n = 0, STONES - 1 do
         local x, y = stoneAt(n)
         local lo, hi = math.min(S.start, S.at), math.max(S.start, S.at)
-        local kind = "plain"
+        local kind
         if S.phase == "together" and n == S.at then kind = "ok"
-        elseif n ~= S.start and n >= lo and n <= hi then kind = "todo" end
-        g.setColor(0, 0, 0, 0.18)
-        g.ellipse("fill", x, y + 8, STONE_R + 5, STONE_R * 0.5)
-        g.setColor(OUTLINE)
-        g.ellipse("fill", x, y, STONE_R + 4, STONE_R * 0.62 + 4)
-        g.setColor(0.8, 0.78, 0.74)
-        g.ellipse("fill", x, y, STONE_R, STONE_R * 0.62)
-        if n == S.start then
-            g.setColor(0.3, 0.55, 0.95)
-            g.setLineWidth(5)
-            g.ellipse("line", x, y, STONE_R + 9, STONE_R * 0.62 + 8)
-        end
-        art.disk(n, x, y - 4, 19, kind, ctx.fonts.badge)
+        elseif n == S.start then kind = "start"
+        elseif n >= lo and n <= hi then kind = "todo" end
+        art.stone(n, x, y, 84, kind, ctx.fonts.board)
     end
 end
 

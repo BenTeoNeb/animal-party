@@ -34,6 +34,18 @@ or D-pad to pick one, the bottom button to choose it. Then each kid picks Rami, 
 Lila (the right button goes back to the games). The level to start with is
 in the menu (Start).
 
+### Difficulty: small steps that adapt
+
+Each game has a ladder of 6 to 8 small steps (the `STEPS` table at the top
+of its file), shown as dots at the top right. After every task the game
+checks whether it went well, right the first time: a few in a row (2 for the
+pens, the train, the nest and the eggs, whose tasks are long; 3 for
+Peekaboo and the path) and it goes up a step, with a sparkle; two not right
+in a row and it quietly goes down one. Each kid's step in each game is
+saved (`progres.lua` in the save folder), and the next game starts one step
+below it; the level in the menu is the lowest step to start from (1, a third
+or two thirds of the ladder). The levels below are where the ladders go.
+
 ### The pens
 
 Three pens stand around the meadow, each with a small sign: a number and an

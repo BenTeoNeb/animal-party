@@ -25,9 +25,18 @@ local g = love.graphics
 local SHOW_Y = 385                       -- where the animals stand when out
 local STONE_Y, STONE_R, STONE_W = 645, 50, 112
 local PER_ROUND = 5                      -- right answers in a round
-local SHOW_TIME = { 3, 3.5, 4 }          -- seconds out, per level
-local GROUP = { { 1, 4 }, { 1, 3 }, { 1, 3 } }    -- animals per hiding place
-local CHOICES = { 3, 3, 4 }
+-- The ladder of steps (adaptive, see progress.lua): how many hiding places,
+-- animals behind each, seconds out, stones to choose from.
+flash.STEPS = {
+    { places = 1, group = { 1, 3 }, show = 3, choices = 3 },
+    { places = 1, group = { 1, 4 }, show = 3, choices = 3 },
+    { places = 1, group = { 2, 4 }, show = 2.2, choices = 3 },
+    { places = 2, group = { 1, 2 }, show = 3.5, choices = 3 },
+    { places = 2, group = { 1, 3 }, show = 3.5, choices = 3 },
+    { places = 2, group = { 1, 4 }, show = 3, choices = 4 },
+    { places = 3, group = { 1, 3 }, show = 4, choices = 4 },
+    { places = 3, group = { 1, 4 }, show = 3.5, choices = 4 },
+}
 local STAND = 0.5                        -- seconds standing on a stone to choose it
 local COUNT_GAP = 0.45                   -- seconds between two numbers when counting them
 
@@ -83,19 +92,20 @@ end
 
 -- A new peekaboo: the hiding places, how many animals behind each one, the stones.
 local function newFlash()
-    local level = W.level
-    local places = PLACES[math.min(level, 3)]
+    local st = flash.STEPS[W.level]
+    S.st = st
+    local places = PLACES[st.places]
     local names = ctx.shuffle({ "cachette_buisson", "cachette_feuillu", "cachette_tronc" })
     local kinds = ctx.shuffle({ unpack(ctx.KINDS) })
     local n
     repeat
         S.hides, n = {}, 0
         for i, p in ipairs(places) do
-            local c = love.math.random(GROUP[level][1], GROUP[level][2])
+            local c = love.math.random(st.group[1], st.group[2])
             S.hides[i] = { x = p[1], y = p[2], image = names[i], kind = kinds[i], count = c }
             n = n + c
         end
-    until n ~= S.n or level == 3
+    until n ~= S.n or st.places == 3
     S.n = n
     W.animals = {}
     for _, h in ipairs(S.hides) do
@@ -111,9 +121,9 @@ local function newFlash()
     end
     -- the stones: the right number and its neighbours, in a shuffled row
     local values, seen = { n }, { [n] = true }
-    while #values < CHOICES[level] do
+    while #values < st.choices do
         local v = n + love.math.random(-2, 2)
-        if v >= 1 and v <= 10 and not seen[v] then values[#values + 1], seen[v] = v, true end
+        if v >= 1 and v <= 15 and not seen[v] then values[#values + 1], seen[v] = v, true end
     end
     ctx.shuffle(values)
     S.stones = {}
@@ -146,6 +156,7 @@ local function choose(stone, k)
         essai = S.tries })
     sendKidsBack()
     if stone.value == S.n then
+        ctx.answer(S.tries == 1)              -- (adapts the difficulty from the next one)
         S.phase, S.t, S.counted = "right", 0.3, 0
         stone.right = true
         goOut()
@@ -213,7 +224,7 @@ function flash.update(dt)
     standOnStones(dt)
     S.t = S.t - dt
     if S.phase == "wait" and S.t <= 0 then
-        S.phase, S.t = "out", SHOW_TIME[W.level]
+        S.phase, S.t = "out", S.st.show
         goOut()
     elseif S.phase == "out" and S.t <= 0 and allOut() then
         S.phase = "hide"
@@ -227,7 +238,7 @@ function flash.update(dt)
             end
         end
     elseif S.phase == "again" and S.t <= 0 then
-        S.phase, S.t = "out", SHOW_TIME[W.level] * 0.8
+        S.phase, S.t = "out", S.st.show * 0.8
         goOut()
     elseif S.phase == "right" and S.t <= 0 and allOut() then
         -- count them together, one by one (hiding place after hiding place)

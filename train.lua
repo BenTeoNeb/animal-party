@@ -50,32 +50,45 @@ local function wagonX(i)
     return LOCO_X + LOCO_W / 2 + WAGON_GAP / 2 + (i - 1) * WAGON_GAP + (W.trainShift or 0)
 end
 
--- The numbers of this round's train, in order.
-local function sequenceFor(level)
+-- The ladder of steps (adaptive, see progress.lua): the train's numbers.
+-- from: the first number (a range); len: how many wagons; by: the step
+-- between two numbers (-1 counts down, 10 counts by tens); decoys: numbers
+-- around it that are not in the train.
+train.STEPS = {
+    { from = { 1, 1 }, len = { 3, 3 }, by = 1 },
+    { from = { 1, 1 }, len = { 4, 5 }, by = 1 },
+    { from = { 1, 1 }, len = { 6, 7 }, by = 1 },
+    { from = { 2, 5 }, len = { 5, 5 }, by = 1, decoys = true },
+    { from = { 6, 14 }, len = { 5, 5 }, by = 1, decoys = true },
+    { from = { 5, 5 }, len = { 5, 5 }, by = -1, decoys = true },
+    { from = { 7, 9 }, len = { 7, 9 }, by = -1, decoys = true },
+    { from = { 10, 10 }, len = { 5, 6 }, by = 10, decoys = true },
+}
+train.UP = 2                   -- clean trains in a row to go up a step
+
+local function sequenceFor(step)
+    local st = train.STEPS[step]
+    local first = love.math.random(st.from[1], st.from[2])
+    local len = love.math.random(st.len[1], st.len[2])
+    if st.by < 0 then len = math.min(len, first) end       -- (down to 1, not below)
     local seq = {}
-    if level == 1 then
-        for n = 1, love.math.random(3, 5) do seq[#seq + 1] = n end
-    elseif level == 2 then
-        local s = love.math.random(2, 5)
-        for n = s, s + 4 do seq[#seq + 1] = n end
-    else
-        for n = love.math.random(5, 8), 1, -1 do seq[#seq + 1] = n end
-    end
-    return seq
+    for i = 0, len - 1 do seq[#seq + 1] = first + i * st.by end
+    return seq, st
 end
 
 function train.newRound(level)
-    local seq = sequenceFor(level)
+    local seq, st = sequenceFor(level)
+    W.trainClean = true
     W.seq, W.trainShift, W.hintT, W.boardNope, W.seatedAt = seq, 0, 0, 0, -9
     LOCO_X = 640 - (LOCO_W + #seq * WAGON_GAP) / 2 + LOCO_W / 2      -- the train in the middle
     local numbers = { unpack(seq) }
     -- decoys: numbers just around the train's, that are not in it
-    if level == 2 then
-        table.insert(numbers, seq[1] - 1)
-        table.insert(numbers, seq[#seq] + 1)
-    elseif level == 3 then
-        table.insert(numbers, seq[1] + 1)
-        table.insert(numbers, seq[1] + 2)
+    if st.decoys then
+        local by = st.by
+        local before, after = seq[1] - by, seq[#seq] + by
+        if before >= 1 then table.insert(numbers, before) end
+        if after >= 1 then table.insert(numbers, after) end
+        if #numbers == #seq + 1 then table.insert(numbers, seq[#seq] + 2 * by > 0 and seq[#seq] + 2 * by or seq[1] - 2 * by) end
     end
     local kinds = ctx.shuffle({ unpack(ctx.KINDS) })
     for i, n in ipairs(numbers) do
@@ -116,6 +129,7 @@ function train.grab(k, a, fresh)
         if fresh then
             a.nope, W.boardNope = 0.6, 0.6
             sfx.play("full")
+            W.trainClean = false
         end
         return
     end
@@ -171,6 +185,7 @@ function train.done()
 end
 
 function train.party()
+    ctx.answer(W.trainClean)
     sfx.play("toot")
     ctx.stars(wagonX(1), RAIL_Y - 90, 14)
 end

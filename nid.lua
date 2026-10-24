@@ -31,8 +31,19 @@ local FRAME = { x1 = CX - 2.5 * NEST_W, y1 = 150, x2 = CX + 2.5 * NEST_W, y2 = 4
 local GATE_Y = 560                        -- walking up to its front (above this) = arriving
 local PER_ROUND = 5
 local COUNT_GAP = 0.45                   -- seconds between two hens sitting down
-local PRE = { { 2, 8 }, { 3, 9 }, { 1, 9 } }   -- hens already in the nest, per level
-local SPARE = { 3, 4, 4 }                -- hens in the meadow more than needed
+-- The ladder of steps (adaptive, see progress.lua): how the hens go in
+-- (free: as many as there is room for; once: exactly the missing number at
+-- once; covered: the same with the nest boxes shut and "6 + ? = 10"), the
+-- hens already in, the spare hens in the yard.
+nid.STEPS = {
+    { way = "free", pre = { 6, 9 }, spare = 3 },
+    { way = "free", pre = { 2, 8 }, spare = 3 },
+    { way = "once", pre = { 6, 9 }, spare = 4 },
+    { way = "once", pre = { 1, 9 }, spare = 4 },
+    { way = "covered", pre = { 6, 9 }, spare = 4 },
+    { way = "covered", pre = { 1, 9 }, spare = 5 },
+}
+nid.UP = 2                               -- clean nests in a row to go up a step
 
 nid.START_X, nid.START_Y = 640, 620
 -- The farm: its ground, the yard where the hens wander, and its decor
@@ -61,8 +72,9 @@ local function slotAt(i)
 end
 
 local function newNest()
-    local level = W.level
-    local pre = love.math.random(PRE[level][1], PRE[level][2])
+    local st = nid.STEPS[W.level]
+    S.way = st.way
+    local pre = love.math.random(st.pre[1], st.pre[2])
     S.pre, S.filled, S.taken = pre, pre, pre     -- taken: nests given (counted or walking in)
     S.phase, S.t, S.nope, S.peek, S.lastSit = "play", 0, 0, 0, -9
     W.animals = {}
@@ -73,13 +85,14 @@ local function newNest()
         a.tx, a.ty = a.x, a.y
         table.insert(W.animals, a)
     end
-    for _ = 1, 10 - pre + SPARE[level] do
+    S.clean = true
+    for _ = 1, 10 - pre + st.spare do
         local a = ctx.newAnimal("poule")
         ctx.biomeSpot(a)
         table.insert(W.animals, a)
     end
     for _, k in ipairs(W.kids) do k.followers = {} end
-    ctx.journal.log("nid", { niveau = level, deja = pre })
+    ctx.journal.log("nid", { niveau = W.level, deja = pre })
 end
 
 function nid.newRound()
@@ -104,6 +117,7 @@ local function enter(a)
 end
 
 local function refuse(list)
+    S.clean = false
     for _, a in ipairs(list) do a.nope = 0.6 end
     S.nope = 0.6
     sfx.play("full")
@@ -119,8 +133,7 @@ function nid.arrive(k)
     k.atNest = atGate
     if not arriving or #k.followers == 0 or S.phase ~= "play" then return end
     local need = 10 - S.taken
-    local level = W.level
-    if level == 1 then
+    if S.way == "free" then
         -- as many as there is room for; the others shake their heads
         local stay = {}
         for i, a in ipairs(k.followers) do
@@ -133,7 +146,7 @@ function nid.arrive(k)
         k.followers = {}
     else
         refuse(k.followers)
-        if level == 3 then S.peek = 2 end      -- the roof lifts: look at the nest
+        if S.way == "covered" then S.peek = 2 end   -- the doors open: look at the nest
         ctx.journal.log("non", { joueur = k.player, amene = #k.followers, manque = need })
     end
 end
@@ -163,6 +176,7 @@ function nid.update(dt)
         -- full: a golden egg
         S.phase, S.t = "full", 2.4
         S.good = S.good + 1
+        ctx.answer(S.clean)
         sfx.play("home")
         ctx.hearts(CX, 300, 8)
         ctx.journal.log("plein", { manches = S.good })
@@ -203,7 +217,7 @@ end
 -- full and not peeking); the golden egg when it's full.
 function nid.things(list)
     ferme.things(list, DECOR)
-    local covered = W.level == 3 and S.phase == "play" and S.peek <= 0
+    local covered = S.way == "covered" and S.phase == "play" and S.peek <= 0
     if covered then
         table.insert(list, { y = FRAME.y2 + 1, draw = function()
             local shake = math.sin(S.nope * 40) * 6 * S.nope / 0.6
@@ -231,7 +245,7 @@ end
 function nid.drawHud()
     art.panel(12, 8, (PER_ROUND - 1) * 40 + 52, 44)
     for i = 1, PER_ROUND do art.star(38 + (i - 1) * 40, 30, 15, i <= S.good) end
-    if W.level == 3 then
+    if S.way == "covered" then
         local f = ctx.fonts.sign
         local text = S.pre .. " + " .. (S.phase == "full" and tostring(10 - S.pre) or "?") .. " = 10"
         local w = f:getWidth(text) + 60

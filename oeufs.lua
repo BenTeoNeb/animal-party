@@ -49,6 +49,19 @@ local DECOR = {
     { "ferme_foin", 1150, 250, 74 }, { "ferme_foin", 1060, 270, 66, -1 },
 }
 
+-- The ladder of steps (adaptive, see progress.lua): the numbers asked for,
+-- and whether the sign shows them in boxes and eggs too.
+oeufs.STEPS = {
+    { from = 10, to = 14, pics = true },
+    { from = 10, to = 19, pics = true },
+    { from = 20, to = 39, pics = true },
+    { from = 20, to = 59, pics = true },
+    { from = 40, to = 79, pics = true },
+    { from = 20, to = 99, pics = false },
+    { from = 50, to = 99, pics = false },
+}
+oeufs.UP = 2                     -- clean deliveries in a row to go up a step
+
 local S = {}      -- this delivery: target, items on the ground, phase...
 oeufs.state = S   -- (read by the tests)
 
@@ -79,17 +92,15 @@ local function spot()
 end
 
 local function newDelivery()
-    local level = W.level
-    local target
-    if level == 1 then target = love.math.random(10, 19)
-    elseif level == 2 then target = love.math.random(20, 59)
-    else target = love.math.random(20, 99) end
+    local st = oeufs.STEPS[W.level]
+    local target = love.math.random(st.from, st.to)
     local tens, ones = math.floor(target / 10), target % 10
     S.target, S.tens, S.ones = target, tens, ones
-    S.items, S.phase, S.t, S.nope, S.help, S.counted, S.sum = {}, "play", 0, 0, level < 3, 0, nil
+    S.items, S.phase, S.t, S.nope, S.help, S.counted, S.sum = {}, "play", 0, 0, st.pics, 0, nil
+    S.clean = true
     local boxes, eggs
-    boxes = tens + (level == 1 and 1 or 2)
-    eggs = ones + (level == 1 and 6 or 5)
+    boxes = tens + (W.level == 1 and 1 or 2)
+    eggs = ones + (W.level == 1 and 6 or 5)
     for _ = 1, boxes do
         local x, y = spot()
         table.insert(S.items, { kind = "box", x = x, y = y })
@@ -99,7 +110,7 @@ local function newDelivery()
         table.insert(S.items, { kind = "egg", x = x, y = y })
     end
     for _, k in ipairs(W.kids) do k.eggs, k.boxes = 0, 0 end
-    ctx.journal.log("commande", { niveau = level, nombre = target, boites = boxes, oeufs = eggs })
+    ctx.journal.log("commande", { niveau = W.level, nombre = target, boites = boxes, oeufs = eggs })
 end
 
 function oeufs.newRound()
@@ -133,11 +144,12 @@ local function deliver(k)
     local total = k.boxes * 10 + k.eggs
     ctx.journal.log("livre", { joueur = k.player, boites = k.boxes, oeufs = k.eggs, demande = S.target })
     if total == S.target then
+        ctx.answer(S.clean)
         S.phase, S.t, S.counted, S.by = "count", 0.4, 0, k
         S.inBoxes, S.inEggs = k.boxes, k.eggs
         k.boxes, k.eggs = 0, 0
     else
-        S.nope, S.help = 0.6, true
+        S.nope, S.help, S.clean = 0.6, true, false
         sfx.play("full")
     end
 end

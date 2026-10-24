@@ -26,6 +26,7 @@ local T = lang.t
 --   newRound(level), grab(k, best, fresh), drop(k) (optional), arrive(k), updateAnimal(a, dt),
 --   update(dt), done(), party(), hidden(a), things(list), drawGround(),
 --   drawOnAnimal(a, shake), drawHud()
+local progress = require("progress")
 local MODES = { train = require("train"), flash = require("flash"), path = require("path"),
     nid = require("nid"), oeufs = require("oeufs") }
 
@@ -37,8 +38,20 @@ world.W, world.H = 1280, 720
 -- Tweak these to make the game easier or harder.
 local KID_SPEED = 230         -- running, arms free
 local KID_WALK_SPEED = 185    -- walking, when animals are following you
-local ROUNDS_PER_LEVEL = 3    -- rounds won before the next level
-local SPARE = { 2, 1, 1 }     -- (per level) animals more than needed in the meadow, of each pen's kind
+-- The pens' ladder of steps (adaptive difficulty, see progress.lua): what the
+-- pens ask for. count: empty pens, 1 to max; add: some already in, up to max;
+-- take: too many in some pens; spare: animals more than needed, per pen.
+local STEPS = {
+    { kind = "count", max = 3, spare = 2 },
+    { kind = "count", max = 5, spare = 2 },
+    { kind = "add", max = 6, spare = 1 },
+    { kind = "add", max = 8, spare = 1 },
+    { kind = "add", max = 9, spare = 1 },
+    { kind = "take", max = 6, spare = 1 },
+    { kind = "mix", max = 8, spare = 1 },
+    { kind = "mix", max = 9, spare = 1 },
+}
+local PENS_UP = 2             -- clean rounds in a row to go up a step (a round is 3 pens)
 local DECOYS = 1              -- animals of each kind that no pen wants
 local COUNT_GAP = 0.45        -- seconds between two animals going in (time to count out loud)
 
@@ -307,10 +320,11 @@ end
 
 -- The pen's number just changed to n: say it (shown next to the sign), and
 -- cheer if it's right.
-local function counted(i, n)
+local function counted(i, n, out)
     local pen = PENS[i]
     pen.countedAt = world.time
     local right = n == pen.target
+    if n > pen.target and not out then world.clean = false end     -- one too many went in
     local x, y, w, h = signRect(pen)
     popup(tostring(n), x + w + 40, y + h / 2 - 26, right and { 0.6, 1, 0.5 } or n > pen.target and { 1, 0.55, 0.45 } or nil)
     sfx.count(n, lang.current)
@@ -340,21 +354,21 @@ function world.load()
 end
 
 -- What each pen asks for this round: { kind, target, start }.
-local function roundFor(level)
+local function roundFor(step)
+    local st = STEPS[step]
     local kinds = shuffle({ unpack(KINDS) })
     local asks = {}
     for i = 1, #PENS do
         local ask = { kind = kinds[i] }
-        local takeAway = level == 3 and (i == 1 or love.math.random() < 0.4)
-        if level == 1 then
-            ask.start, ask.target = 0, love.math.random(1, 5)
+        local takeAway = st.kind == "take" and i <= 2 or st.kind == "mix" and (i == 1 or love.math.random() < 0.4)
+        if st.kind == "count" then
+            ask.start, ask.target = 0, love.math.random(1, st.max)
         elseif takeAway then
-            ask.target = love.math.random(1, 6)
+            ask.target = love.math.random(1, st.max - 3)
             ask.start = ask.target + love.math.random(1, 3)
         else
-            local most = level == 3 and 6 or 8
-            ask.start = love.math.random(1, 4)
-            ask.target = love.math.random(ask.start + 1, math.min(most, ask.start + 4))
+            ask.start = love.math.random(1, math.min(4, st.max - 2))
+            ask.target = love.math.random(ask.start + 1, math.min(st.max, ask.start + 4))
         end
         asks[i] = ask
     end
@@ -392,6 +406,7 @@ end
 
 local function newRound()
     world.phase = "play"
+    world.clean = true
     world.rightFor = 0
     world.animals = {}
     world.popups = {}
@@ -421,7 +436,7 @@ local function newRound()
             a.tx, a.ty = a.x, a.y
             table.insert(world.animals, a)
         end
-        for _ = 1, math.max(0, ask.target - ask.start) + SPARE[world.level] do
+        for _ = 1, math.max(0, ask.target - ask.start) + STEPS[world.level].spare do
             local a = newAnimal(ask.kind)
             biomeSpot(a)
             table.insert(world.animals, a)
@@ -494,8 +509,7 @@ function world.start(chosen, level, mode)
     world.treeCount = 0
     world.time = 0
     world.done = false
-    world.level = level or 1
-    world.roundsWon, world.levelWins = 0, 0
+    world.roundsWon = 0
     world.particles, world.popups = {}, {}
     world.fade = 0
 
@@ -529,6 +543,11 @@ function world.start(chosen, level, mode)
 
     local kidNames = {}
     for _, k in ipairs(world.kids) do kidNames[#kidNames + 1] = k.look.id end
+    -- the step to start on: from the menu's level and the kids' saved steps
+    world.kidIds = kidNames
+    world.steps = R and #R.STEPS or #STEPS
+    world.level = progress.start(world.mode, kidNames, level, world.steps)
+    world.ladder = { step = world.level }
     journal.start({ joueurs = #chosen, enfants = kidNames, mode = world.mode, niveau = world.level,
         langue = lang.current })
     newRound()
@@ -585,7 +604,7 @@ local function tryGrab(k, fresh)
     table.insert(k.followers, best)
     hearts(best.x, best.y - 40, 1)
     sfx.play("grab_" .. best.kind)       -- each animal has its own voice
-    if out and wasCounted then counted(pen, penCount(pen)) end
+    if out and wasCounted then counted(pen, penCount(pen), true) end
 end
 
 -- An animal goes into pen i: it walks to a spot inside, and is counted
@@ -600,6 +619,7 @@ end
 local function refuse(a, i)
     a.nope = 0.6
     PENS[i].nope = 0.6
+    world.clean = false
 end
 
 -- Let go of one animal (the last in line); in its own pen, it goes in.
@@ -898,8 +918,28 @@ local function updateEffects(dt)
     end
 end
 
+-- A task is done (clean: right the first time). The difficulty adapts: a
+-- step up after a few clean ones in a row (with a little sparkle on the
+-- ladder), a step down after two not clean; it takes effect from the next
+-- task, and is saved for the kids.
+function world.answer(clean)
+    local up = PENS_UP
+    if world.rules then up = world.rules.UP or 3 end
+    local step, change = progress.answer(world.ladder, clean, world.steps, up)
+    journal.log("etape", { propre = clean, etape = step, change = change })
+    if change ~= 0 then
+        world.level = step
+        progress.save(world.mode, world.kidIds, step)
+        if change > 0 then
+            world.stepFlash = 1.2
+            sfx.play("sparkle")
+        end
+    end
+end
+
 function world.update(dt)
     world.time = world.time + dt
+    world.stepFlash = math.max(0, (world.stepFlash or 0) - dt)
     updateEffects(dt)
 
     if world.phase == "play" then
@@ -909,7 +949,7 @@ function world.update(dt)
             world.phase = "party"
             world.partyTime = 0
             world.roundsWon = world.roundsWon + 1
-            world.levelWins = world.levelWins + 1
+            if not world.rules then world.answer(world.clean ~= false) end   -- (the other games say it per task)
             world.duck = 3
             sfx.play("win")
             for _, k in ipairs(world.kids) do k.cheer = 3 end
@@ -925,9 +965,6 @@ function world.update(dt)
         if world.partyTime > 3.5 then
             world.fade = math.min(1, world.fade + dt * 2.5)
             if world.fade >= 1 then
-                if world.levelWins >= ROUNDS_PER_LEVEL and world.level < 3 then
-                    world.level, world.levelWins = world.level + 1, 0
-                end
                 for _, k in ipairs(world.kids) do k.cheer = 0 end
                 newRound()
             end
@@ -1015,7 +1052,30 @@ local function drawAnimal(a)
 end
 
 -- At the top: one star per round won.
+-- The ladder of steps, at the top right: a dot per step, the ones reached
+-- filled; it sparkles when the kids go up a step.
+local function drawLadder()
+    local n, cur = world.steps or 1, world.level or 1
+    local gap = 16
+    local w = (n - 1) * gap + 30
+    local x0 = 1280 - 12 - w
+    art.panel(x0, 10, w, 26)
+    for i = 1, n do
+        local x = x0 + 15 + (i - 1) * gap
+        g.setColor(art.OUTLINE)
+        g.circle("fill", x, 23, 6.5)
+        if i <= cur then g.setColor(art.COLORS.todo) else g.setColor(0.55, 0.42, 0.3) end
+        g.circle("fill", x, 23, 5)
+    end
+    if (world.stepFlash or 0) > 0 then
+        local x = x0 + 15 + (cur - 1) * gap
+        local s = math.sin(world.stepFlash / 1.2 * math.pi)
+        art.star(x, 23 - s * 16, 9 + s * 8, true)
+    end
+end
+
 local function hud()
+    drawLadder()
     local n = world.roundsWon
     if n == 0 then return end
     local shown = math.min(n, 12)
@@ -1087,7 +1147,8 @@ end
 for _, R in pairs(MODES) do
     R.setup(world, { newAnimal = newAnimal, biomeSpot = biomeSpot, moveToward = moveToward,
         popup = popup, hearts = hearts, stars = stars, outlined = outlined, fonts = fonts,
-        journal = journal, KINDS = KINDS, shuffle = shuffle, dist = dist, rand = rand })
+        journal = journal, KINDS = KINDS, shuffle = shuffle, dist = dist, rand = rand,
+        answer = function(clean) world.answer(clean) end })
 end
 
 return world

@@ -52,18 +52,29 @@ function path.setup(world, c)
     W, ctx = world, c
 end
 
+-- The ladder of steps (adaptive, see progress.lua): which way (+1 adds, -1
+-- takes away, 0 both), how many hops at most, the biggest number.
+path.STEPS = {
+    { dir = 1, hops = 2, top = 6 },
+    { dir = 1, hops = 3, top = 8 },
+    { dir = 1, hops = 4, top = 10 },
+    { dir = -1, hops = 2, top = 6 },
+    { dir = -1, hops = 3, top = 10 },
+    { dir = 0, hops = 3, top = 10 },
+    { dir = 0, hops = 5, top = 10 },
+}
+
 -- A new trip: where the animal starts, how many hops, which way.
 local function newTrip()
-    local level = W.level
-    local dir = level == 1 and 1 or level == 2 and -1 or (love.math.random() < 0.5 and 1 or -1)
-    local most = level == 3 and 5 or 3
+    local st = path.STEPS[W.level]
+    local dir = st.dir ~= 0 and st.dir or (love.math.random() < 0.5 and 1 or -1)
     local n, s
     repeat
-        n = love.math.random(1, most)
+        n = love.math.random(1, st.hops)
         if dir > 0 then
-            s = love.math.random(0, (level == 1 and 8 or 10) - n)
+            s = love.math.random(0, st.top - n)
         else
-            s = love.math.random(n, level == 2 and 8 or 10)
+            s = love.math.random(n, st.top)
         end
     until not (s == S.start and n == S.n)
     S.start, S.n, S.dir, S.hops, S.at = s, n, dir, 0, s
@@ -133,6 +144,7 @@ local function answer(m, k)
     ctx.journal.log("reponse", { joueur = k.player, depart = S.start, sauts = S.n * S.dir, choisi = m,
         juste = m == S.answer, aide = S.help })
     if m == S.answer then
+        ctx.answer(not S.help)                  -- right the first time? (adapts the next trips)
         S.auto, S.t = true, 0.3                 -- the animal hops there, to show it
     else
         S.off[m], S.nope[m], S.help = true, 0.6, true

@@ -608,10 +608,10 @@ end
 -- The grass drawing (images/herbe.png), repeated as tiles `tile` pixels wide
 -- over a w x h area. Returns false if there is no grass drawing.
 local grassQuads = {}
-function art.grass(w, h, tile)
-    local im = art.image("herbe")
+function art.grass(w, h, tile, name)
+    local im = art.image(name or "herbe")
     if not im then return false end
-    local key = w .. "x" .. h .. "@" .. tile
+    local key = (name or "herbe") .. w .. "x" .. h .. "@" .. tile
     if not grassQuads[key] then
         im:setWrap("repeat", "repeat")
         local sc = tile / im:getWidth()

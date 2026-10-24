@@ -509,16 +509,23 @@ function world.start(chosen, level, mode)
     end
 
     world.trees, world.props, world.pond, world.home = {}, {}, nil, {}
-    for i, biome in ipairs(shuffle({ unpack(BIOMES) })) do
-        world.makeBiome(biome, zones[i])
+    world.scene = R and R.SCENE                  -- a game may have its own place (the farm)
+    if world.scene then
+        -- no forest: its own ground, its decor (R.DECOR), and all the animals
+        -- live in its yard (R.YARD)
+        for _, kind in ipairs(KINDS) do world.home[kind] = R.YARD end
+    else
+        for i, biome in ipairs(shuffle({ unpack(BIOMES) })) do
+            world.makeBiome(biome, zones[i])
+        end
+        -- a few flowers in the clearing
+        for _ = 1, 10 do
+            table.insert(world.props, { name = love.math.random() < 0.7 and "fleurs" or "feuille",
+                x = world.startX + rand(-170, 170), y = world.startY + rand(-110, 90),
+                f = love.math.random() < 0.5 and -1 or 1, s = rand(0.85, 1.1) })
+        end
+        table.sort(world.props, function(a, b) return a.y < b.y end)
     end
-    -- a few flowers in the clearing
-    for _ = 1, 10 do
-        table.insert(world.props, { name = love.math.random() < 0.7 and "fleurs" or "feuille",
-            x = world.startX + rand(-170, 170), y = world.startY + rand(-110, 90),
-            f = love.math.random() < 0.5 and -1 or 1, s = rand(0.85, 1.1) })
-    end
-    table.sort(world.props, function(a, b) return a.y < b.y end)
 
     local kidNames = {}
     for _, k in ipairs(world.kids) do kidNames[#kidNames + 1] = k.look.id end
@@ -950,7 +957,8 @@ local function outlined(text, font, x, y, w, color)
 end
 
 local function ground()
-    local grass = art.grass(world.W, world.H, GRASS_TILE)
+    local grass = art.grass(world.W, world.H, world.scene and world.rules.GROUND_TILE or GRASS_TILE,
+        world.scene and world.rules.GROUND)
     if not grass then
         g.setColor(0.5, 0.75, 0.35)
         g.rectangle("fill", 0, 0, world.W, world.H)

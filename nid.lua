@@ -16,25 +16,34 @@
 local art = require("art")
 local sfx = require("sfx")
 local lang = require("lang")
+local ferme = require("ferme")
 
 local nid = {}
 local W, ctx
 local g = love.graphics
 
-local CX = 640                           -- the frame's middle
-local COL_GAP, ROWS_Y = 88, { 292, 378 } -- the nests: 5 columns, 2 rows (the hens' feet)
-local FRAME = { x1 = 405, y1 = 212, x2 = 875, y2 = 412 }   -- the hen house (solid)
-local GATE_Y = 470                       -- walking in front of it (above this) = arriving
+-- The hen house: 2 rows of 5 drawn nest boxes (images/nichoir.png, 118 px
+-- wide), under a roof (images/nichoir_toit.png, one piece per column).
+local CX, NEST_W = 640, 118
+local ROOF_Y = 222                        -- the roof's bottom
+local ROWS_Y = { 340, 460 }               -- the bottom of each row of nest boxes
+local FRAME = { x1 = CX - 2.5 * NEST_W, y1 = 150, x2 = CX + 2.5 * NEST_W, y2 = 460 }   -- (solid)
+local GATE_Y = 560                        -- walking up to its front (above this) = arriving
 local PER_ROUND = 5
 local COUNT_GAP = 0.45                   -- seconds between two hens sitting down
 local PRE = { { 2, 8 }, { 3, 9 }, { 1, 9 } }   -- hens already in the nest, per level
 local SPARE = { 3, 4, 4 }                -- hens in the meadow more than needed
 
-nid.START_X, nid.START_Y = 640, 570
-nid.ZONES = {
-    { x1 = 300, y1 = 10, x2 = 980, y2 = 190 },
-    { x1 = 16, y1 = 220, x2 = 380, y2 = 712 },
-    { x1 = 900, y1 = 220, x2 = 1264, y2 = 712 },
+nid.START_X, nid.START_Y = 640, 620
+-- The farm: its ground, the yard where the hens wander, and its decor
+-- ({ image, x, feet y, height, flip }).
+nid.SCENE, nid.GROUND, nid.GROUND_TILE = "ferme", ferme.GROUND, ferme.GROUND_TILE
+nid.YARD = { x1 = 20, y1 = 470, x2 = 1260, y2 = 720 }
+local DECOR = {
+    { "ferme_grange", 150, 330, 230 },
+    { "ferme_foin", 1110, 250, 78 }, { "ferme_foin", 1200, 300, 78, -1 }, { "ferme_foin", 1030, 310, 70 },
+    { "ferme_barriere", 1180, 170, 56 }, { "ferme_barriere", 1040, 170, 56 },
+    { "ferme_abreuvoir", 1160, 440, 54 }, { "ferme_brouette", 290, 420, 62, -1 },
 }
 
 local S = {}      -- this nest: filled, nests, phase, timer, round...
@@ -44,9 +53,10 @@ function nid.setup(world, c)
     W, ctx = world, c
 end
 
+-- Where the hen of nest i stands (on its straw).
 local function slotAt(i)
     local col, row = (i - 1) % 5, math.floor((i - 1) / 5)
-    return CX + (col - 2) * COL_GAP, ROWS_Y[row + 1]
+    return CX + (col - 2) * NEST_W, ROWS_Y[row + 1] - 14
 end
 
 local function newNest()
@@ -100,8 +110,8 @@ end
 
 -- The hen house is solid; walking up to its front with hens is arriving.
 function nid.arrive(k)
-    if k.x > FRAME.x1 - 10 and k.x < FRAME.x2 + 10 and k.y > FRAME.y1 and k.y < FRAME.y2 + 8 then
-        k.y = FRAME.y2 + 8                      -- (pushed out, to the front)
+    if k.x > FRAME.x1 - 10 and k.x < FRAME.x2 + 10 and k.y > FRAME.y1 and k.y < FRAME.y2 + 14 then
+        k.y = FRAME.y2 + 14                     -- (pushed out, to the front)
     end
     local atGate = k.x > FRAME.x1 and k.x < FRAME.x2 and k.y < GATE_Y
     local arriving = atGate and not k.atNest
@@ -173,85 +183,61 @@ function nid.drawOnAnimal() end
 
 local OUTLINE = art.OUTLINE
 
--- The hen house: a wooden frame, a straw floor, and the 10 nests.
+-- The hen house: the roof and the 10 nest boxes.
 function nid.drawGround()
     local shake = math.sin(S.nope * 40) * 6 * S.nope / 0.6
     g.push()
     g.translate(shake, 0)
-    local f = FRAME
-    art.panel(f.x1, f.y1, f.x2 - f.x1, f.y2 - f.y1)
-    g.setColor(0.93, 0.82, 0.5)
-    g.rectangle("fill", f.x1 + 12, f.y1 + 12, f.x2 - f.x1 - 24, f.y2 - f.y1 - 24, 10)
-    g.setColor(OUTLINE)                                        -- the dividers
-    g.setLineWidth(4)
-    for c = 1, 4 do
-        local x = CX + (c - 2.5) * COL_GAP
-        g.line(x, f.y1 + 14, x, f.y2 - 14)
-    end
-    g.line(f.x1 + 14, (f.y1 + f.y2) / 2, f.x2 - 14, (f.y1 + f.y2) / 2)
-    for i = 1, 10 do                                           -- the straw nests
-        local x, y = slotAt(i)
-        g.setColor(0.6, 0.42, 0.2)
-        g.ellipse("fill", x, y - 4, 32, 14)
-        g.setColor(0.85, 0.66, 0.32)
-        g.ellipse("fill", x, y - 6, 24, 9)
-        g.setColor(0.6, 0.42, 0.2)
-        g.setLineWidth(2)
-        for s = -2, 2 do g.line(x + s * 8 - 6, y - 12, x + s * 8 + 6, y - 2) end
+    g.setColor(0, 0, 0, 0.18)
+    g.ellipse("fill", CX, FRAME.y2 + 2, 2.7 * NEST_W, 18)
+    for col = 0, 4 do
+        local x = CX + (col - 2) * NEST_W
+        for _, y in ipairs(ROWS_Y) do ferme.image("nichoir", x, y, NEST_W * 360 / 354) end
+        ferme.image("nichoir_toit", x, ROOF_Y, NEST_W * 199 / 354 + 4)
     end
     g.pop()
 end
 
--- The straw roof (level 3, while the nest is not full and not peeking), and
--- the golden egg when it's full.
+-- The decor; the closed doors over the nest boxes (level 3, while it is not
+-- full and not peeking); the golden egg when it's full.
 function nid.things(list)
+    ferme.things(list, DECOR)
     local covered = W.level == 3 and S.phase == "play" and S.peek <= 0
     if covered then
         table.insert(list, { y = FRAME.y2 + 1, draw = function()
-            local f = FRAME
             local shake = math.sin(S.nope * 40) * 6 * S.nope / 0.6
-            g.setColor(OUTLINE)
-            g.rectangle("fill", f.x1 - 14 + shake, f.y1 - 34, f.x2 - f.x1 + 28, f.y2 - f.y1 + 36, 30)
-            g.setColor(0.92, 0.75, 0.35)
-            g.rectangle("fill", f.x1 - 10 + shake, f.y1 - 30, f.x2 - f.x1 + 20, f.y2 - f.y1 + 28, 26)
-            g.setColor(0.75, 0.55, 0.22)
-            g.setLineWidth(3)
-            for y = f.y1 - 14, f.y2 - 14, 22 do
-                for x = f.x1 + 6, f.x2 - 20, 26 do
-                    g.line(x + shake, y, x + 14 + shake, y + 12)
-                end
+            for i = 1, 10 do
+                local col, row = (i - 1) % 5, math.floor((i - 1) / 5)
+                local x, y = CX + (col - 2) * NEST_W + shake, ROWS_Y[row + 1]
+                art.panel(x - NEST_W / 2 + 12, y - 104, NEST_W - 24, 92)
+                g.setColor(1, 0.85, 0.3)
+                g.circle("fill", x + 26, y - 58, 5)
             end
         end })
     end
     if S.phase == "full" then
         table.insert(list, { y = FRAME.y2 + 2, draw = function()
             local s = math.min(1, (2.4 - S.t) * 3)
-            local x, y = CX, FRAME.y1 - 10
-            g.setColor(OUTLINE)
-            g.ellipse("fill", x, y, 30 * s, 40 * s)
-            g.setColor(1, 0.82, 0.2)
-            g.ellipse("fill", x, y, 26 * s, 36 * s)
-            g.setColor(1, 0.95, 0.6)
-            g.ellipse("fill", x - 8 * s, y - 12 * s, 7 * s, 11 * s)
-            art.star(x + 30, y - 30 + math.sin(W.time * 6) * 4, 9 * s, true)
-            art.star(x - 32, y - 16 + math.cos(W.time * 6) * 4, 7 * s, true)
+            ferme.image("oeuf_dore", CX, FRAME.y1 + 10 - 30 * s, 96 * s)
+            art.star(CX + 60, FRAME.y1 - 70 + math.sin(W.time * 6) * 4, 11 * s, true)
+            art.star(CX - 62, FRAME.y1 - 40 + math.cos(W.time * 6) * 4, 9 * s, true)
         end })
     end
 end
 
--- At the top: the round's full nests (stars); at level 3, the sign "6 + ? = 10".
+-- At the top left: the round's full nests (stars); at the top in the middle,
+-- level 3: the sign "6 + ? = 10".
 function nid.drawHud()
-    local x0 = 640 - (PER_ROUND - 1) * 22
-    art.panel(x0 - 30, 8, (PER_ROUND - 1) * 44 + 60, 44)
-    for i = 1, PER_ROUND do art.star(x0 + (i - 1) * 44, 30, 15, i <= S.good) end
+    art.panel(12, 8, (PER_ROUND - 1) * 40 + 52, 44)
+    for i = 1, PER_ROUND do art.star(38 + (i - 1) * 40, 30, 15, i <= S.good) end
     if W.level == 3 then
         local f = ctx.fonts.sign
         local text = S.pre .. " + " .. (S.phase == "full" and tostring(10 - S.pre) or "?") .. " = 10"
         local w = f:getWidth(text) + 60
-        art.paper(640 - w / 2, 60, w, 84)
+        art.paper(640 - w / 2, 10, w, 84)
         g.setFont(f)
         g.setColor(OUTLINE)
-        g.printf(text, 640 - w / 2, 102 - f:getHeight() / 2, w, "center")
+        g.printf(text, 640 - w / 2, 52 - f:getHeight() / 2, w, "center")
     end
 end
 

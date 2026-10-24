@@ -301,28 +301,21 @@ local function drawModeIcon(m)
     elseif m == "flash" then            -- a fox peeking out from behind the bush
         art.animal("renard", 34, 20, -1, 0.7, false)
         image("cachette_buisson", -6, 34, 62)
-    elseif m == "nid" then              -- a little ten-frame: 6 hens and 4 empty nests
-        g.setColor(art.OUTLINE)
-        g.rectangle("fill", -58, -18, 116, 52, 8)
-        g.setColor(0.93, 0.82, 0.5)
-        g.rectangle("fill", -54, -14, 108, 44, 6)
+    elseif m == "nid" then              -- the little hen house: 6 hens and 4 empty nests
         for i = 1, 10 do
-            local x, y = -44 + ((i - 1) % 5) * 22, ((i - 1) < 5) and 4 or 26
-            g.setColor(0.7, 0.5, 0.25)
-            g.ellipse("fill", x, y - 2, 9, 4)
-            if i <= 6 then art.animal("poule", x, y, 1, 0.38, false) end
+            local x, y = -48 + ((i - 1) % 5) * 24, ((i - 1) < 5) and 6 or 30
+            image("nichoir", x, y, 24)
+            if i <= 6 then art.animal("poule", x, y - 3, 1, 0.34, false) end
         end
-        g.setColor(art.OUTLINE)
-        g.ellipse("fill", 40, -30, 12, 15)
-        g.setColor(1, 0.82, 0.2)
-        g.ellipse("fill", 40, -30, 10, 13)
+        for c = 0, 4 do image("nichoir_toit", -48 + c * 24, -16, 14) end
+        image("oeuf_dore", 52, -14, 30)
     elseif m == "oeufs" then            -- a hen, two egg boxes and three eggs: 23
-        local O = require("oeufs")
-        art.animal("poule", -42, 30, 1, 0.7, true)
-        O.drawBox(0, 4, 0.75)
-        O.drawBox(0, 26, 0.75)
-        for i = 0, 2 do O.drawEgg(34 + i * 13, 26, 0.75) end
-        art.disk(23, 40, -20, 15, "todo", fonts.small)
+        local F = require("ferme")
+        art.animal("poule", -44, 34, 1, 0.66, true)
+        F.box(-2, 12, 50, 10)
+        F.box(-2, 36, 50, 10)
+        F.box(46, 36, 42, 3)
+        art.disk(23, 44, -14, 14, "todo", fonts.small)
     else                                -- three stepping stones and a squirrel hopping
         for i = 0, 2 do art.stone(i + 1, -38 + i * 38, 26, 36, nil, fonts.small, i) end
         g.setColor(1, 1, 1, 0.8)

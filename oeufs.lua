@@ -1,9 +1,10 @@
--- oeufs.lua: the Egg Boxes (les boîtes à œufs): tens and ones, up to 100. The
--- hens have laid eggs all over the meadow: walk on them to pick them up.
--- As soon as a kid carries 10 eggs, they snap into a box ("clac!"). The
--- market cart, at the bottom, asks for a number, say 34: bring it exactly 3
--- boxes and 4 eggs. Right: the cart counts them, "10, 20, 30" then "31, 32,
--- 33, 34", and shows "34 = 30 + 4". Too many or too few: it wobbles; the
+-- oeufs.lua: the Egg Boxes (les boîtes à œufs): tens and ones, up to 100. On
+-- the farm, the hens have laid eggs all over the yard: walk on them to pick
+-- them up. They go into an open box in the kid's basket (at the bottom); when
+-- it holds 10 eggs it closes ("clac!"): a ten. The market stall asks for a
+-- number (the sign at the top), say 34: bring it exactly 3 boxes and 4 eggs.
+-- Right: it counts them, "10, 20, 30" then "31, 32, 33, 34" (on the sign, each
+-- box and egg lights up), and shows "34 = 30 + 4". Not right: it wobbles; the
 -- right button puts one egg down (with no loose egg, it opens a box: one egg
 -- down, 9 loose ones carried; breaking a ten).
 -- Grouping by ten, then reading a number as tens and ones (the Singapore
@@ -19,22 +20,25 @@
 local art = require("art")
 local sfx = require("sfx")
 local lang = require("lang")
+local ferme = require("ferme")
 
 local oeufs = {}
 local W, ctx
 local g = love.graphics
 
-local CART_X, CART_Y = 640, 668          -- the cart's wheels
-local PICK = 28                          -- how close to an egg or a box picks it up
+local CART_X, CART_Y = 640, 712          -- the market stall (its feet)
+local PICK = 34                          -- how close to an egg or a box picks it up
 local PER_ROUND = 3
 local COUNT_GAP = 0.4
 local HENS = 6                           -- hens wandering about (they laid the eggs)
+local EGG_H, BOX_W = 40, 92              -- an egg and a box on the ground
 
-oeufs.START_X, oeufs.START_Y = 640, 470
-oeufs.ZONES = {
-    { x1 = 300, y1 = 130, x2 = 980, y2 = 330 },
-    { x1 = 16, y1 = 60, x2 = 420, y2 = 712 },
-    { x1 = 860, y1 = 60, x2 = 1264, y2 = 712 },
+oeufs.START_X, oeufs.START_Y = 640, 430
+oeufs.SCENE, oeufs.GROUND, oeufs.GROUND_TILE = "ferme", ferme.GROUND, ferme.GROUND_TILE
+oeufs.YARD = { x1 = 320, y1 = 170, x2 = 960, y2 = 330 }
+local DECOR = {
+    { "ferme_grange", 140, 300, 220 }, { "ferme_barriere", 1060, 140, 52 }, { "ferme_barriere", 1190, 140, 52 },
+    { "ferme_foin", 1150, 250, 74 }, { "ferme_foin", 1060, 270, 66, -1 },
 }
 
 local S = {}      -- this delivery: target, items on the ground, phase...
@@ -49,10 +53,11 @@ end
 local function spot()
     local x, y
     for _ = 1, 200 do
-        x, y = ctx.rand(40, 1240), ctx.rand(150, 700)
-        local ok = not (x > CART_X - 580 and x < CART_X + 170 and y > 470) and not (y < 210 and math.abs(x - 640) < 260)
+        x, y = ctx.rand(50, 1230), ctx.rand(190, 560)
+        local ok = not (x < 290 and y < 330) and not (x > 990 and y < 300)          -- the barn, the hay
+            and not (math.abs(x - oeufs.START_X) < 60 and math.abs(y - oeufs.START_Y) < 50)
         for _, it in ipairs(S.items) do
-            if math.abs(it.x - x) < 44 and math.abs(it.y - y) < 32 then ok = false end
+            if math.abs(it.x - x) < (it.kind == "box" and 90 or 52) and math.abs(it.y - y) < 46 then ok = false end
         end
         for _, tr in ipairs(W.trees) do
             if math.abs(tr.x - x) < 40 and y < tr.y + 14 and y > tr.y - 30 then ok = false end
@@ -112,7 +117,7 @@ function oeufs.drop(k)
         sfx.play("clac")
     end
     k.eggs = k.eggs - 1
-    table.insert(S.items, { kind = "egg", x = k.x + 30 * k.facing, y = k.y + 4, wait = 1 })
+    table.insert(S.items, { kind = "egg", x = k.x + 30 * k.facing, y = k.y + 4, wait = 1, owner = k })
     sfx.play("drop")
 end
 
@@ -136,7 +141,8 @@ function oeufs.arrive(k)
     if S.phase ~= "play" then return end
     for i = #S.items, 1, -1 do
         local it = S.items[i]
-        if not it.wait and math.abs(it.x - k.x) < PICK and math.abs(it.y - k.y) < PICK * 0.7 then
+        local reach = it.kind == "box" and PICK + 20 or PICK
+        if not it.wait and math.abs(it.x - k.x) < reach and math.abs(it.y - k.y) < reach * 0.7 then
             table.remove(S.items, i)
             if it.kind == "box" then
                 k.boxes = k.boxes + 1
@@ -144,16 +150,16 @@ function oeufs.arrive(k)
             else
                 k.eggs = k.eggs + 1
                 sfx.play("select")
-                if k.eggs == 10 then              -- ten eggs: a box!
+                if k.eggs == 10 then              -- ten eggs: the box is full, a ten!
                     k.eggs, k.boxes = 0, k.boxes + 1
                     sfx.play("clac")
-                    ctx.popup("10", k.x, k.y - 150, { 1, 0.9, 0.4 })
-                    ctx.hearts(k.x, k.y - 120, 3)
+                    ctx.popup("10", k.x, k.y - 130, { 1, 0.9, 0.4 })
+                    ctx.hearts(k.x, k.y - 110, 3)
                 end
             end
         end
     end
-    local atCart = math.abs(k.x - CART_X) < 120 and k.y > CART_Y - 120
+    local atCart = math.abs(k.x - CART_X) < 150 and k.y > CART_Y - 130
     if atCart and not k.atCart and (k.boxes > 0 or k.eggs > 0) then deliver(k) end
     k.atCart = atCart
 end
@@ -162,10 +168,13 @@ function oeufs.updateAnimal() end
 
 function oeufs.update(dt)
     S.nope = math.max(0, S.nope - dt)
+    -- an egg just put down waits until its kid has walked away from it
     for _, it in ipairs(S.items) do
         if it.wait then
-            it.wait = it.wait - dt
-            if it.wait <= 0 then it.wait = nil end
+            it.wait = math.max(0, it.wait - dt)
+            local k = it.owner
+            local away = not k or math.abs(k.x - it.x) > PICK * 2 or math.abs(k.y - it.y) > PICK * 2
+            if it.wait == 0 and away then it.wait, it.owner = nil, nil end
         end
     end
     if W.phase ~= "play" then return end
@@ -176,8 +185,7 @@ function oeufs.update(dt)
             S.counted = S.counted + 1
             local n = math.min(S.counted, S.inBoxes) * 10 + math.max(0, S.counted - S.inBoxes)
             sfx.count(n, lang.current)
-            ctx.popup(tostring(n), CART_X + (S.counted <= S.inBoxes and -50 or 50), CART_Y - 170,
-                S.counted <= S.inBoxes and { 1, 0.9, 0.4 } or { 0.6, 1, 0.5 })
+            ctx.popup(tostring(n), CART_X, CART_Y - 250, S.counted <= S.inBoxes and { 1, 0.9, 0.4 } or { 0.6, 1, 0.5 })
             S.t = COUNT_GAP
         else
             S.sum = S.target .. " = " .. (S.tens * 10) .. " + " .. S.ones
@@ -203,128 +211,77 @@ function oeufs.drawOnAnimal() end
 
 -- Drawing ------------------------------------------------------------------------
 
-local OUTLINE = art.OUTLINE
-
-local function egg(x, y, s)
-    s = s or 1
-    g.setColor(0, 0, 0, 0.15)
-    g.ellipse("fill", x + 2 * s, y + 1, 9 * s, 3.5 * s)
-    g.setColor(OUTLINE)
-    g.ellipse("fill", x, y - 9 * s, 9 * s, 11.5 * s)
-    g.setColor(1, 0.97, 0.9)
-    g.ellipse("fill", x, y - 9 * s, 7 * s, 9.5 * s)
-    g.setColor(1, 1, 1)
-    g.ellipse("fill", x - 2.5 * s, y - 13 * s, 2.2 * s, 3.2 * s)
-end
-
--- A box of 10: a cardboard egg carton, 2 rows of 5 eggs showing.
-local function box(x, y, s)
-    s = s or 1
-    local w, h = 58 * s, 24 * s
-    g.setColor(0, 0, 0, 0.15)
-    g.ellipse("fill", x + 3 * s, y + 1, w * 0.55, 5 * s)
-    g.setColor(OUTLINE)
-    g.rectangle("fill", x - w / 2 - 2 * s, y - h - 2 * s, w + 4 * s, h + 3 * s, 5 * s)
-    g.setColor(0.78, 0.6, 0.4)
-    g.rectangle("fill", x - w / 2, y - h, w, h, 4 * s)
-    for r = 0, 1 do
-        for c = 0, 4 do
-            local ex, ey = x - w / 2 + 7 * s + c * 11 * s, y - h + 6.5 * s + r * 10 * s
-            g.setColor(OUTLINE)
-            g.circle("fill", ex, ey, 4.6 * s)
-            g.setColor(1, 0.97, 0.9)
-            g.circle("fill", ex, ey, 3.6 * s)
-        end
-    end
-end
-oeufs.drawEgg, oeufs.drawBox = egg, box
-
--- The eggs and boxes on the grass, and the market cart.
+-- The eggs and boxes on the ground.
 function oeufs.drawGround()
     for _, it in ipairs(S.items or {}) do
-        if it.kind == "box" then box(it.x, it.y) else egg(it.x, it.y) end
+        if it.kind == "box" then ferme.box(it.x, it.y, BOX_W, 10) else ferme.egg(it.x, it.y, EGG_H) end
     end
 end
 
--- The cart (a wagon from the train, with a little awning) and its sign.
+-- The decor and the market stall (with what was delivered on its table).
 function oeufs.things(list)
+    ferme.things(list, DECOR)
     table.insert(list, { y = CART_Y, draw = function()
         local shake = math.sin(S.nope * 40) * 6 * S.nope / 0.6
-        local x = CART_X + shake
-        local im = art.image("train_wagon_jaune")
-        if im then
-            local sc = 170 / im:getWidth()
-            g.setColor(1, 1, 1)
-            g.draw(im, x, CART_Y, 0, sc, sc, im:getWidth() / 2, im:getHeight())
-        end
-        -- what's in it, while it counts
-        if S.phase == "count" or S.phase == "done" then
-            local n = math.min(S.counted, S.inBoxes)
-            for i = 1, n do box(x - 60 + ((i - 1) % 5) * 20, CART_Y - 64 - math.floor((i - 1) / 5) * 8, 0.55) end
-            for i = 1, math.max(0, S.counted - S.inBoxes) do egg(x + 22 + ((i - 1) % 5) * 11, CART_Y - 62, 0.7) end
-        end
-        g.setColor(OUTLINE)                                   -- the awning's poles
-        g.setLineWidth(5)
-        g.line(x - 78, CART_Y - 60, x - 78, CART_Y - 120)
-        g.line(x + 78, CART_Y - 60, x + 78, CART_Y - 120)
-        for i = 0, 5 do                                       -- the striped awning
-            g.setColor(OUTLINE)
-            g.rectangle("fill", x - 92 + i * 30.7, CART_Y - 136, 31.7, 22, 4)
-            if i % 2 == 0 then g.setColor(0.9, 0.3, 0.25) else g.setColor(1, 0.97, 0.9) end
-            g.rectangle("fill", x - 90 + i * 30.7, CART_Y - 134, 28.7, 18, 3)
+        ferme.image("etal", CART_X + shake, CART_Y, 210)
+        if S.phase == "count" or S.phase == "done" then          -- the boxes on the table
+            local nb = math.min(S.counted, S.inBoxes)
+            for i = 1, nb do
+                ferme.box(CART_X - 66 + ((i - 1) % 3) * 44 + shake, CART_Y - 78 - math.floor((i - 1) / 3) * 12, 42, 10)
+            end
+            local ne = math.max(0, S.counted - S.inBoxes)
+            if S.inEggs > 0 then ferme.box(CART_X + 70 + shake, CART_Y - 78, 42, ne) end
         end
     end })
 end
 
--- Boxes in a row, and loose eggs in a row under them, on a cream card whose
--- middle top is at (cx, y). Returns its height.
-local BOX_S, BOX_STEP, EGG_S, EGG_STEP = 0.72, 46, 0.9, 19
-local function rows(nb, ne, cx, y)
-    local w = math.max(nb * BOX_STEP, ne * EGG_STEP) + 24
-    local h = (nb > 0 and 30 or 0) + (ne > 0 and 26 or 0) + 16
-    art.paper(cx - w / 2, y, w, h)
-    local by = y + 8 + (nb > 0 and 22 or 0)
-    for i = 1, nb do box(cx - nb * BOX_STEP / 2 + (i - 0.5) * BOX_STEP, by, BOX_S) end
-    for i = 1, ne do egg(cx - ne * EGG_STEP / 2 + (i - 0.5) * EGG_STEP, by + 24, EGG_S) end
-    return h
-end
-
--- What a kid carries, above their head: boxes, and loose eggs under them.
-local function drawCarried(k)
-    local nb, ne = k.boxes or 0, k.eggs or 0
-    if nb == 0 and ne == 0 then return end
-    local h = (nb > 0 and 30 or 0) + (ne > 0 and 26 or 0) + 16
-    rows(nb, ne, k.x, k.y - 130 * k.look.size - h)
-end
-
--- At the top: the deliveries of the round (stars). On the cart: its sign,
--- the number asked for, and (levels 1-2, or after a wrong try) the same in
--- boxes and eggs; after a delivery, "34 = 30 + 4".
-function oeufs.drawHud()
-    local x0 = 640 - (PER_ROUND - 1) * 22
-    art.panel(x0 - 30, 8, (PER_ROUND - 1) * 44 + 60, 44)
-    for i = 1, PER_ROUND do art.star(x0 + (i - 1) * 44, 30, 15, i <= S.good) end
-    for _, k in ipairs(W.kids) do drawCarried(k) end
-
-    -- the sign, on the left of the cart
+-- The task, at the top in the middle: the number, and (levels 1-2, or after
+-- a wrong try) the same in boxes: full boxes for the tens and an open box
+-- with the ones. While the stall counts, they light up one by one.
+local SIGN_BOX = 66
+local function drawSign()
     local f = ctx.fonts.sign
     local text = S.sum or tostring(S.target)
-    local pics = S.help and not S.sum
-    local w = f:getWidth(text) + 50
-    local right = CART_X - 112
+    local pics = (S.help or S.phase ~= "play") and S.target
+    local nb = S.tens + (S.ones > 0 and 1 or 0)
+    local pw = pics and nb * (SIGN_BOX + 8) + 12 or 0
+    local w = math.max(f:getWidth(text) + 60, pw + 20)
+    local h = pics and 154 or 86
+    local x = 640 - w / 2
     local shake = math.sin(S.nope * 40) * 6 * S.nope / 0.6
-    local y = CART_Y - 78 - (pics and 74 or 0)
     g.push()
     g.translate(shake, 0)
-    art.paper(right - w, y, w, 78)
+    art.paper(x, 6, w, h)
     g.setFont(f)
-    g.setColor(OUTLINE)
-    g.printf(text, right - w, y + 39 - f:getHeight() / 2, w, "center")
-    if pics then                         -- the same, in boxes and eggs, under it
-        local pw = math.max(S.tens * BOX_STEP, S.ones * EGG_STEP) + 24
-        rows(S.tens, S.ones, right - pw / 2, y + 84)
+    g.setColor(art.OUTLINE)
+    g.printf(text, x, 48 - f:getHeight() / 2, w, "center")
+    if pics then                         -- under the number: the same in boxes
+        local lit = S.phase ~= "play" and S.counted or 0
+        local bx = 640 - (nb * (SIGN_BOX + 8) - 8) / 2 + SIGN_BOX / 2
+        for i = 1, S.tens do
+            ferme.box(bx, 146, SIGN_BOX, 10, i <= lit and { 0.5, 1, 0.4 } or nil)
+            bx = bx + SIGN_BOX + 8
+        end
+        if S.ones > 0 then
+            local lone = S.phase ~= "play" and lit > S.inBoxes
+            ferme.box(bx, 146, SIGN_BOX, S.ones, lone and { 0.5, 1, 0.4 } or nil)
+        end
     end
     g.pop()
+end
+
+-- At the top left: the deliveries of the round (stars); at the top: the
+-- task; at the bottom: each kid's basket.
+function oeufs.drawHud()
+    art.panel(12, 8, (PER_ROUND - 1) * 40 + 52, 44)
+    for i = 1, PER_ROUND do art.star(38 + (i - 1) * 40, 30, 15, i <= S.good) end
+    drawSign()
+    for _, k in ipairs(W.kids) do ferme.basket(k, k.boxes or 0, k.eggs or 0) end
+end
+
+function oeufs.drawIcon(x, y, s)    -- (for the games screen) two boxes and 3 eggs
+    ferme.box(x - 26 * s, y, 56 * s, 10)
+    ferme.box(x + 34 * s, y, 56 * s, 3)
 end
 
 return oeufs

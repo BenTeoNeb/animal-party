@@ -193,6 +193,7 @@ makeFonts = function()
     fonts.big = art.font(38, "titre")
     fonts.mid = art.font(24)
     fonts.small = art.font(20)
+    fonts.tiny = art.font(12)
     world.makeFonts()
 end
 
@@ -273,42 +274,102 @@ end
 
 local PLAYER_COLORS = { { 1, 0.7, 0.2 }, { 0.4, 0.75, 1 } }
 
--- A little picture of each game, around (0, 0), about 110 x 70 at size 1.
+-- A little picture of each game, made of the game's own drawings, around
+-- (0, 0), about 110 x 80 at size 1 (the cards draw it 2.1 times bigger).
+local function image(name, x, y, h, flip)    -- an image h tall, feet at (x, y)
+    local im = art.image(name)
+    if not im then return end
+    local sc = h / im:getHeight()
+    g.setColor(1, 1, 1)
+    g.draw(im, x, y, 0, sc * (flip or 1), sc, im:getWidth() / 2, im:getHeight())
+end
+
 local function drawModeIcon(m)
-    if m == "fete" then                 -- a hen and a 3
-        art.animal("poule", -20, 30, 1, 1.0, false)
-        outlined("3", fonts.big, 4, -26, 40, { 1, 0.9, 0.4 })
-    elseif m == "path" then             -- three stones, 1 2 3, and a squirrel hopping
-        for i = 0, 2 do
-            g.setColor(0.23, 0.14, 0.09)
-            g.ellipse("fill", -36 + i * 34, 18, 17, 11)
-            g.setColor(0.86, 0.84, 0.8)
-            g.ellipse("fill", -36 + i * 34, 18, 14, 8)
-            g.setFont(fonts.small)
-            g.setColor(0.23, 0.14, 0.09)
-            g.printf(tostring(i + 1), -46 + i * 34, 17 - fonts.small:getHeight() / 2, 20, "center")
+    if m == "fete" then                 -- a hut, a hen and a sheep, and the sign's 3
+        image("cabane_champignon", 26, 26, 56)
+        art.animal("poule", -30, 34, 1, 0.75, true)
+        art.animal("mouton", 4, 38, 1, 0.75, true)
+        art.disk(3, -36, -18, 13, "todo", fonts.small)
+    elseif m == "train" then            -- the engine and a wagon with a hen in it
+        art.animal("poule", 30, 6, -1, 0.62, false)
+        image("train_wagon_rouge", 30, 30, 26)
+        image("train_loco", -24, 30, 50, -1)
+        art.disk(1, 30, 18, 8, "plain", fonts.tiny)
+    elseif m == "flash" then            -- a fox peeking out from behind the bush
+        art.animal("renard", 34, 20, -1, 0.7, false)
+        image("cachette_buisson", -6, 34, 62)
+    else                                -- three stepping stones and a squirrel hopping
+        for i = 0, 2 do art.stone(i + 1, -38 + i * 38, 26, 36, nil, fonts.small, i) end
+        g.setColor(1, 1, 1, 0.8)
+        for d = 0, 6 do                 -- its hop, in little dots
+            local u = d / 6
+            g.circle("fill", -38 + u * 38, 14 - math.sin(u * math.pi) * 26, 1.6)
         end
-        art.animal("ecureuil", -2, -8, 1, 0.75, false)
-    elseif m == "flash" then            -- a bush with two eyes peeking out
-        art.prop("buisson", -10, 28, 1, 2.2)
-        g.setColor(1, 1, 1)
-        g.circle("fill", -20, -2, 7)
-        g.circle("fill", 0, -2, 7)
-        g.setColor(0.23, 0.14, 0.09)
-        g.circle("fill", -18, -1, 3.5)
-        g.circle("fill", 2, -1, 3.5)
-    else                                -- a little train: two wagons and the engine
-        for i = 0, 2 do
-            local c = ({ { 0.4, 0.75, 0.35 }, { 1, 0.78, 0.2 }, { 0.3, 0.55, 0.9 } })[i + 1]
-            local up = i == 2 and 12 or 0
-            g.setColor(0.23, 0.14, 0.09)
-            g.rectangle("fill", -42 + i * 28, -4 - up, 26, 24 + up, 4)
-            g.setColor(c)
-            g.rectangle("fill", -40 + i * 28, -2 - up, 22, 20 + up, 3)
-            g.setColor(0.23, 0.14, 0.09)
-            g.circle("fill", -34 + i * 28, 22, 5)
-            g.circle("fill", -22 + i * 28, 22, 5)
+        art.animal("ecureuil", -19, -4, 1, 0.6, false)
+    end
+end
+
+-- The pause menu's pictures, one per line, around (x, y).
+local function drawMenuIcon(item, x, y)
+    local o = art.OUTLINE
+    if item == "resume" then            -- a play arrow
+        g.setColor(o)
+        g.polygon("fill", x - 9, y - 13, x - 9, y + 13, x + 14, y)
+        g.setColor(0.45, 0.8, 0.35)
+        g.polygon("fill", x - 6, y - 8, x - 6, y + 8, x + 8, y)
+    elseif item == "to_title" then      -- home: a little house
+        image("maison_rouge", x, y + 16, 34)
+    elseif item == "level" then         -- stars, as many as the level
+        for i = 1, 3 do art.star(x - 16 + (i - 1) * 16, y, 8, i <= level) end
+    elseif item == "fullscreen" then    -- a screen
+        g.setColor(o)
+        g.rectangle("fill", x - 16, y - 12, 32, 22, 4)
+        g.setColor(0.55, 0.8, 1)
+        g.rectangle("fill", x - 13, y - 9, 26, 16, 2)
+        g.setColor(o)
+        g.rectangle("fill", x - 4, y + 10, 8, 5)
+    elseif item == "sound" then         -- a speaker, with waves when the sound is on
+        g.setColor(o)
+        g.polygon("fill", x - 14, y - 6, x - 6, y - 6, x + 3, y - 14, x + 3, y + 14, x - 6, y + 6, x - 14, y + 6)
+        if soundOn then
+            g.setLineWidth(3)
+            g.arc("line", "open", x + 5, y, 8, -0.8, 0.8)
+            g.arc("line", "open", x + 5, y, 14, -0.8, 0.8)
+        else
+            g.setLineWidth(3)
+            g.line(x + 7, y - 7, x + 17, y + 7)
+            g.line(x + 17, y - 7, x + 7, y + 7)
         end
+    elseif item == "language" then      -- the flag of the language
+        g.setColor(o)
+        g.rectangle("fill", x - 16, y - 11, 32, 22, 3)
+        if lang.current == "fr" then
+            local c = { { 0.2, 0.35, 0.8 }, { 1, 1, 1 }, { 0.9, 0.25, 0.25 } }
+            for i = 1, 3 do
+                g.setColor(c[i])
+                g.rectangle("fill", x - 14 + (i - 1) * 9.33, y - 9, 9.33, 18)
+            end
+        else
+            g.setColor(0.2, 0.3, 0.7)
+            g.rectangle("fill", x - 14, y - 9, 28, 18)
+            g.setColor(1, 1, 1)
+            g.setLineWidth(5)
+            g.line(x - 14, y - 9, x + 14, y + 9)
+            g.line(x - 14, y + 9, x + 14, y - 9)
+            g.line(x, y - 9, x, y + 9)
+            g.line(x - 14, y, x + 14, y)
+            g.setColor(0.85, 0.2, 0.2)
+            g.setLineWidth(2.5)
+            g.line(x, y - 9, x, y + 9)
+            g.line(x - 14, y, x + 14, y)
+        end
+    elseif item == "quit" then          -- a door
+        g.setColor(o)
+        g.rectangle("fill", x - 11, y - 15, 22, 30, 4)
+        g.setColor(0.7, 0.45, 0.25)
+        g.rectangle("fill", x - 8, y - 12, 16, 27, 3)
+        g.setColor(1, 0.85, 0.3)
+        g.circle("fill", x + 4, y + 2, 2.5)
     end
 end
 
@@ -342,7 +403,8 @@ local function drawBackdrop(subtitle)
     outlined(T("language"), fonts.small, 82, 64, 180, { 1, 0.95, 0.6 })
     -- the level (changed in the menu)
     art.panel(14, 100, 250, 38)
-    outlined(levelName(), fonts.small, 14, 108, 250, { 0.6, 0.9, 1 })
+    for i = 1, 3 do art.star(38 + (i - 1) * 22, 119, 9, i <= level) end
+    outlined(levelName(), fonts.small, 96, 108, 160, { 0.6, 0.9, 1 })
 end
 
 -- The games screen: four big cards with a picture, left / right to pick one.
@@ -359,8 +421,8 @@ local function drawGames()
         end
         art.paper(cx - 130, 170 - bounce, 260, 300)
         g.push()
-        g.translate(cx, 300 - bounce)
-        g.scale(2.3)
+        g.translate(cx, 296 - bounce)
+        g.scale(2.1)
         drawModeIcon(m)
         g.pop()
         g.setFont(fonts.big)
@@ -437,9 +499,10 @@ drawMenu = function()
             g.setColor(art.COLORS.todo)
             g.rectangle("fill", 420, y - 6, 440, 50, 16)
         end
+        drawMenuIcon(item, 460, y + 19)
         g.setFont(fonts.mid)
         g.setColor(art.OUTLINE)
-        g.printf(menuLabel(item), 390, y + 19 - fonts.mid:getHeight() / 2, 500, "center")
+        g.printf(menuLabel(item), 500, y + 19 - fonts.mid:getHeight() / 2, 340, "left")
     end
 end
 

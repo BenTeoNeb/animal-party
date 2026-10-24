@@ -595,7 +595,7 @@ function art.star(x, y, r, filled)
         table.insert(pts, x + math.cos(ang) * rr)
         table.insert(pts, y + math.sin(ang) * rr)
     end
-    if filled then g.setColor(1, 0.85, 0.15) else g.setColor(1, 1, 1, 0.25) end
+    if filled then g.setColor(1, 0.85, 0.15) else g.setColor(0.45, 0.3, 0.18, 0.45) end
     -- a star is concave: draw it as triangles from the middle
     for i = 0, 9 do
         local j = (i + 1) % 10

@@ -29,10 +29,10 @@ local g = love.graphics
 -- The market stall, big, at the bottom right (images/etal.png): its feet,
 -- its height, and where its table is in the drawing (parts of its width and
 -- height): the delivered boxes stand on it, in two rows of five.
-local CART_X, CART_Y, CART_H = 1065, 714, 360
-local TABLE_X1, TABLE_X2 = 0.09, 0.9
-local TABLE_ROWS = { 0.63, 0.705 }       -- the bottom of the back row and the front row
-local TABLE_BOX = 60
+local CART_X, CART_Y, CART_H = 1070, 714, 300
+local TABLE_X1, TABLE_X2 = 0.15, 0.85    -- (the stall seen from the front: a straight table
+local TABLE_ROWS = { 0.675, 0.735 }      -- top from 0.62 to 0.735 of its height)
+local TABLE_BOX = 50
 local PICK = 34                          -- how close to an egg or a box picks it up
 local PER_ROUND = 3
 local COUNT_GAP = 0.4
@@ -41,6 +41,7 @@ local EGG_H, BOX_W = 40, 92              -- an egg and a box on the ground
 
 oeufs.START_X, oeufs.START_Y = 640, 430
 oeufs.SCENE, oeufs.GROUND, oeufs.GROUND_TILE = "ferme", ferme.GROUND, ferme.GROUND_TILE
+oeufs.KID_SCALE = ferme.KID_SCALE
 oeufs.YARD = { x1 = 320, y1 = 170, x2 = 960, y2 = 330 }
 local DECOR = {
     { "ferme_grange", 140, 300, 220 }, { "ferme_barriere", 1060, 140, 52 }, { "ferme_barriere", 1190, 140, 52 },
@@ -160,8 +161,8 @@ function oeufs.arrive(k)
                 if k.eggs == 10 then              -- ten eggs: the box is full, a ten!
                     k.eggs, k.boxes = 0, k.boxes + 1
                     sfx.play("clac")
-                    ctx.popup("10", k.x, k.y - 130, { 1, 0.9, 0.4 })
-                    ctx.hearts(k.x, k.y - 110, 3)
+                    ctx.popup("10", k.x, k.y - 170, { 1, 0.9, 0.4 })
+                    ctx.hearts(k.x, k.y - 150, 3)
                 end
             end
         end

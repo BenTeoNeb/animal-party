@@ -13,6 +13,8 @@ local g = love.graphics
 
 ferme.GROUND = "cour"                        -- images/cour.png, the farmyard tile (made
 ferme.GROUND_TILE = 560                      -- from planches/cour.png, which repeats as is)
+ferme.KID_SCALE = 1.6                        -- the kids, bigger on the farm (the stall's table
+                                             -- comes up to their chest)
 
 -- An image h tall, its feet at (x, y), flipped if f = -1; tint (optional).
 function ferme.image(name, x, y, h, f, tint)

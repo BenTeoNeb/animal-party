@@ -996,10 +996,13 @@ local function drawSign(i)
     g.pop()
 end
 
+-- (a game may draw the kids bigger: world.rules.KID_SCALE, e.g. on the farm,
+-- so they are in proportion with the market stall)
 local function drawKid(k)
-    art.kid(k.look, k.x, k.y, k.facing, 1.25, k.walk, k.anim, k.animT)
+    local s = world.rules and world.rules.KID_SCALE or 1.25
+    art.kid(k.look, k.x, k.y, k.facing, s, k.walk, k.anim, k.animT)
     if #world.kids > 1 then
-        outlined(T("player") .. k.player, fonts.small, k.x - 30, k.y - 120 * k.look.size, 60,
+        outlined(T("player") .. k.player, fonts.small, k.x - 30, k.y - 96 * s * k.look.size, 60,
             k.player == 1 and { 1, 0.75, 0.3 } or { 0.5, 0.8, 1 })
     end
 end

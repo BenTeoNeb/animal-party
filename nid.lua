@@ -38,6 +38,7 @@ nid.START_X, nid.START_Y = 640, 620
 -- The farm: its ground, the yard where the hens wander, and its decor
 -- ({ image, x, feet y, height, flip }).
 nid.SCENE, nid.GROUND, nid.GROUND_TILE = "ferme", ferme.GROUND, ferme.GROUND_TILE
+nid.KID_SCALE = ferme.KID_SCALE
 nid.YARD = { x1 = 20, y1 = 470, x2 = 1260, y2 = 720 }
 local DECOR = {
     { "ferme_grange", 150, 330, 230 },

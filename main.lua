@@ -28,9 +28,15 @@ local W, H = 1280, 720
 local g = love.graphics
 local state = "select"
 local level = 1           -- 1 count, 2 add, 3 take away (chosen in the menu)
-local mode = "fete"       -- "fete" (the pens) or "train" (chosen in the menu, or up/down)
+local mode = "fete"       -- "fete" (the pens), "train" or "flash" (chosen in the menu, or up/down)
+local MODES = { "fete", "train", "flash" }
+local function nextMode(dir)
+    for i, m in ipairs(MODES) do
+        if m == mode then mode = MODES[(i - 1 + dir) % #MODES + 1] return end
+    end
+end
 local function levelName()
-    return T(mode == "train" and "level_train_" .. level or "level_" .. level)
+    return T(mode == "fete" and "level_" .. level or "level_" .. mode .. "_" .. level)
 end
 local fonts = {}
 
@@ -75,8 +81,8 @@ local function selectAction(p, action)
         sfx.play("ready")
         return
     end
-    if action == "up" or action == "down" then        -- switch the game: pens / train
-        mode = mode == "fete" and "train" or "fete"
+    if action == "up" or action == "down" then        -- switch the game: pens / train / peekaboo
+        nextMode(action == "down" and 1 or -1)
         sfx.play("select")
     elseif action == "left" and not me.ready then
         moveChoice(p, -1)
@@ -135,7 +141,7 @@ local function menuChoose()
         resetSelect()
         state = "select"
     elseif item == "mode" then
-        mode = mode == "fete" and "train" or "fete"
+        nextMode(1)
     elseif item == "level" then
         level = level % 3 + 1
     elseif item == "fullscreen" then
@@ -319,6 +325,14 @@ local function drawSelect()
     if mode == "fete" then
         art.animal("poule", 1046, 84, 1, 1.0, false)
         outlined("3", fonts.big, 1066, 36, 40, { 1, 0.9, 0.4 })
+    elseif mode == "flash" then      -- a bush with two eyes peeking out
+        art.prop("buisson", 1050, 88, 1, 2.2)
+        g.setColor(1, 1, 1)
+        g.circle("fill", 1040, 58, 7)
+        g.circle("fill", 1060, 58, 7)
+        g.setColor(0.23, 0.14, 0.09)
+        g.circle("fill", 1042, 59, 3.5)
+        g.circle("fill", 1062, 59, 3.5)
     else
         for i = 0, 2 do      -- a little train: two wagons and the engine
             local c = ({ { 0.4, 0.75, 0.35 }, { 1, 0.78, 0.2 }, { 0.3, 0.55, 0.9 } })[i + 1]

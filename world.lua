@@ -19,7 +19,14 @@ if not hasJournal then
 end
 local lang = require("lang")
 local T = lang.t
-local train = require("train")    -- the other game mode: the Animal Train
+-- The other games on the same meadow. Each is a module with the same hooks,
+-- called below when there is one for the current game (world.rules); the
+-- pens game is this file's own default rules.
+--   START_X, START_Y, ZONES (optional)   where the kids start, the biome zones
+--   newRound(level), grab(k, best, fresh), arrive(k), updateAnimal(a, dt),
+--   update(dt), done(), party(), hidden(a), things(list), drawGround(),
+--   drawOnAnimal(a, shake), drawHud()
+local MODES = { train = require("train"), flash = require("flash") }
 
 local world = {}
 local g = love.graphics
@@ -53,7 +60,7 @@ for _, r in ipairs(PENS) do
     r.hutY = r.gate == "top" and r.y + r.h - 24 or r.y + 75
 end
 world.pens = PENS        -- each one: kind, target (set by newRound)
-local active = PENS      -- the pens of this game (none in the train mode)
+local active = PENS      -- the pens of this game (none in the other games)
 
 -- Where the kids start: the clearing in the middle.
 local START_X, START_Y = 640, 380
@@ -386,8 +393,8 @@ local function newRound()
     world.animals = {}
     world.popups = {}
     for _, k in ipairs(world.kids) do k.followers = {} end
-    if world.mode == "train" then
-        train.newRound(world.level)
+    if world.rules then
+        world.rules.newRound(world.level)
         return
     end
 
@@ -472,13 +479,15 @@ function world.makeBiome(biome, z)
     end
 end
 
--- mode: "fete" (the pens, default) or "train".
+-- mode: "fete" (the pens, default), "train" or "flash".
 function world.start(chosen, level, mode)
-    world.mode = mode == "train" and "train" or "fete"
-    active = world.mode == "train" and {} or PENS
-    local zones = world.mode == "train" and train.ZONES or ZONES
-    world.startX = world.mode == "train" and train.START_X or START_X
-    world.startY = world.mode == "train" and train.START_Y or START_Y
+    world.mode = MODES[mode] and mode or "fete"
+    local R = MODES[world.mode]
+    world.rules = R
+    active = R and {} or PENS
+    local zones = R and R.ZONES or ZONES
+    world.startX = R and R.START_X or START_X
+    world.startY = R and R.START_Y or START_Y
     world.treeCount = 0
     world.time = 0
     world.done = false
@@ -539,17 +548,8 @@ local function tryGrab(k, fresh)
             if d < k.look.reach and (not bestD or d < bestD) then best, bestD = a, d end
         end
     end
-    if world.mode == "train" then
-        -- only the next number follows; the train takes them all (no limit)
-        if not best then return end
-        if not train.canCall(best) then
-            if fresh then train.refuse(best) end
-            return
-        end
-        best.vx, best.vy, best.state = 0, 0, "follow"
-        table.insert(k.followers, best)
-        hearts(best.x, best.y - 40, 1)
-        train.called(k, best)
+    if world.rules then
+        world.rules.grab(k, best, fresh)
         return
     end
     local here = penAt(k)
@@ -599,7 +599,7 @@ local function letGo(k)
     local a = table.remove(k.followers)
     journal.log("lache", { joueur = k.player, animal = a.kind })
     local here = penAt(k)
-    if here and world.mode ~= "train" and PENS[here].kind == a.kind then
+    if here and not world.rules and PENS[here].kind == a.kind then
         enter(a, here, 0.2)
     else
         a.state, a.tx, a.ty, a.wait = "free", a.x, a.y, rand(1, 2)
@@ -714,8 +714,8 @@ local function updateKid(k, dt)
     elseif len > 0.1 then setAnim(k, leading and "marche" or "course")
     else setAnim(k, "repos") end
 
-    if world.mode == "train" then
-        train.arrive(k)
+    if world.rules then
+        world.rules.arrive(k)
         return
     end
     -- Walk into a pen: the animals it wants go inside, one after the other
@@ -804,8 +804,6 @@ local function updateAnimal(a, dt)
             end
         end
         blockByTrees(a)
-    elseif a.state == "board" then
-        train.updateBoard(a, dt)
     elseif a.state == "home" then
         if not a.counted then
             a.countIn = a.countIn - dt
@@ -826,6 +824,8 @@ local function updateAnimal(a, dt)
             end
             if not moveToward(a, a.tx, a.ty, 30, dt) then a.walk = 0 end
         end
+    elseif world.rules then
+        world.rules.updateAnimal(a, dt)          -- the other games' own states
     end
     if a.moving and a.moving > 150 then setAnim(a, "course")
     elseif a.moving then setAnim(a, "marche")
@@ -834,7 +834,7 @@ end
 
 -- All three pens right (and nobody still walking in)?
 local function allRight()
-    if world.mode == "train" then return train.done() end
+    if world.rules then return world.rules.done() end
     for _, a in ipairs(world.animals) do
         if a.state == "home" and not a.counted then return false end
     end
@@ -896,7 +896,7 @@ function world.update(dt)
             sfx.play("win")
             for _, k in ipairs(world.kids) do k.cheer = 3 end
             for _, pen in ipairs(active) do stars(pen.x + 120, pen.y + 140, 10) end
-            if world.mode == "train" then train.party() end
+            if world.rules then world.rules.party() end
             journal.log("bravo", { niveau = world.level, manches = world.roundsWon })
         end
     elseif world.phase == "party" then
@@ -916,7 +916,7 @@ function world.update(dt)
         end
     end
     if world.phase == "play" and world.fade > 0 then world.fade = math.max(0, world.fade - dt * 2.5) end
-    if world.mode == "train" then train.update(dt) end
+    if world.rules then world.rules.update(dt) end
 
     for _, k in ipairs(world.kids) do updateKid(k, dt) end
     separateKids()
@@ -991,8 +991,9 @@ end
 
 local function drawAnimal(a)
     local shake = math.sin((a.nope or 0) * 40) * 5 * (a.nope or 0) / 0.6
-    art.animal(a.kind, a.x + shake, a.y, a.facing, 1.2, true, a.anim, a.animT)
-    if world.mode == "train" then train.drawBadge(a, shake) end
+    local hop = (a.hop or 0) > 0 and math.sin(a.hop / 0.4 * math.pi) * 16 or 0   -- a little jump (a.hop seconds)
+    art.animal(a.kind, a.x + shake, a.y - hop, a.facing, 1.2, true, a.anim, a.animT)
+    if world.rules then world.rules.drawOnAnimal(a, shake) end
 end
 
 -- At the top: one star per round won.
@@ -1001,7 +1002,7 @@ local function hud()
     if n == 0 then return end
     local shown = math.min(n, 12)
     local x0 = START_X - (shown - 1) * 17
-    if world.mode == "train" then x0 = 40 end          -- (the train's numbers are in the middle)
+    if world.rules then x0 = 40 end          -- (the games' own counters are in the middle)
     g.setColor(0.2, 0.12, 0.08, 0.55)
     g.rectangle("fill", x0 - 24, 6, (shown - 1) * 34 + 48, 40, 16)
     for s = 1, shown do art.star(x0 + (s - 1) * 34, 26, 14, true) end
@@ -1010,16 +1011,16 @@ end
 function world.draw()
     ground()
     for _, r in ipairs(active) do art.pen(r) end
-    if world.mode == "train" then train.drawGround() end
+    if world.rules then world.rules.drawGround() end
 
     -- everything with feet, back to front
     local things = {}
     for _, tr in ipairs(world.trees) do table.insert(things, { y = tr.y, tree = tr }) end
     for _, a in ipairs(world.animals) do
-        if not train.isSeated(a) then table.insert(things, { y = a.y, animal = a }) end
+        if not (world.rules and world.rules.hidden(a)) then table.insert(things, { y = a.y, animal = a }) end
     end
     for _, k in ipairs(world.kids) do table.insert(things, { y = k.y, kid = k }) end
-    if world.mode == "train" then train.things(things) end
+    if world.rules then world.rules.things(things) end
     table.sort(things, function(a, b) return a.y < b.y end)
     for _, o in ipairs(things) do
         if o.draw then
@@ -1049,7 +1050,7 @@ function world.draw()
         local c = p.color or { 1, 1, 1 }
         outlined(p.text, fonts.big, p.x - 60, p.y - u * 40, 120, { c[1], c[2], c[3], 1 - u * u })
     end
-    if world.mode == "train" then train.drawBoard() end
+    if world.rules then world.rules.drawHud() end
     hud()
     if world.phase == "party" then
         local s = 1 + 0.15 * math.sin(world.partyTime * 6)
@@ -1065,9 +1066,11 @@ function world.draw()
     end
 end
 
--- The train mode uses the same meadow, animals and helpers.
-train.setup(world, { newAnimal = newAnimal, biomeSpot = biomeSpot, moveToward = moveToward,
-    popup = popup, hearts = hearts, stars = stars, outlined = outlined, fonts = fonts,
-    journal = journal, KINDS = KINDS, shuffle = shuffle })
+-- The other games use the same meadow, animals and helpers.
+for _, R in pairs(MODES) do
+    R.setup(world, { newAnimal = newAnimal, biomeSpot = biomeSpot, moveToward = moveToward,
+        popup = popup, hearts = hearts, stars = stars, outlined = outlined, fonts = fonts,
+        journal = journal, KINDS = KINDS, shuffle = shuffle, dist = dist, rand = rand })
+end
 
 return world

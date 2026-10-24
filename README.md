@@ -50,8 +50,8 @@ with is chosen in the menu (Start) on the home screen.
 
 ### The Animal Train
 
-The second game (chosen on the home screen, top right, with up / down or
-in the menu). Animals wearing a number wait in the meadow: call them **in
+The second game (the game is chosen on the home screen, top right, with
+up / down, or in the menu). Animals wearing a number wait in the meadow: call them **in
 order** and lead them onto the platform, where each one climbs into its
 numbered wagon and says its number. Only the next number follows you;
 another one shakes its head. A board at the top shows the train's numbers
@@ -63,6 +63,24 @@ the train whistles and leaves.
 - **Level 2**: five numbers starting from 2 to 5 (4 5 6 7 8), with a number
   just before and just after that are not in the train.
 - **Level 3**: count down to 1 (from 5 to 8), with bigger numbers as decoys.
+
+### Peekaboo! (Coucou !)
+
+The third game. A few animals hop out of the big bush in the middle, in a
+dice pattern, for a moment, then hide again: how many were there? Stand on
+the stone with that number. Right: they come out again and are counted
+together, one by one. Not right: the stone wobbles and greys, and they peek
+out again. 5 right answers make a round (the stars at the top). It trains
+seeing a small number at a glance, without counting one by one.
+
+- **Level 1**: 1 to 3 animals, out 3 seconds, 3 stones.
+- **Level 2**: 2 to 5 animals, 2.5 seconds, 3 stones.
+- **Level 3**: 3 to 6 animals, 2 seconds, 4 stones.
+
+The games share the meadow, the kids and the animals (`world.lua`, which is
+also the pens game); the train and Peekaboo add their own rules
+(`train.lua`, `flash.lua`) through the hooks listed at the top of
+`world.lua`.
 
 **The kids' voices**: record them saying the numbers and put the files in
 `voix/fr/1.ogg`, `voix/fr/2.ogg`... (`voix/en/` in English; .ogg, .mp3 or

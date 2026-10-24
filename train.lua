@@ -6,7 +6,7 @@
 --   2  count up from another number (five numbers from 2 to 5), with a
 --      couple of numbers around them that are not in the train
 --   3  count down to 1 (from 5 to 8), and the train leaves: "3, 2, 1, go!"
--- world.lua calls the functions below at the right moments (train.setup).
+-- world.lua calls the hooks below at the right moments (see MODES there).
 
 local art = require("art")
 local sfx = require("sfx")
@@ -100,19 +100,21 @@ local function slotOf(n)
     end
 end
 
--- Can this animal follow now? Only the next number.
-function train.canCall(a)
-    return a.number ~= nil and a.number == train.nextNumber()
-end
-
--- The wrong number: it shakes its head, and the next number on the board too.
-function train.refuse(a)
-    a.nope, W.boardNope = 0.6, 0.6
-    sfx.play("full")
-end
-
--- The right one: it says its number.
-function train.called(k, a)
+-- A kid calls the nearest animal (best): only the next number follows, and
+-- says its number; another one shakes its head, and the next number on the
+-- board too. The train takes them all (no limit to how many follow).
+function train.grab(k, a, fresh)
+    if not a then return end
+    if a.number == nil or a.number ~= train.nextNumber() then
+        if fresh then
+            a.nope, W.boardNope = 0.6, 0.6
+            sfx.play("full")
+        end
+        return
+    end
+    a.vx, a.vy, a.state = 0, 0, "follow"
+    table.insert(k.followers, a)
+    ctx.hearts(a.x, a.y - 40, 1)
     W.hintT = 0
     sfx.count(a.number, lang.current)
     ctx.popup(tostring(a.number), a.x, a.y - art.height(a.kind) * 1.2 - 50, { 1, 0.9, 0.4 })
@@ -129,7 +131,8 @@ function train.arrive(k)
     k.followers = {}
 end
 
-function train.updateBoard(a, dt)
+-- An animal going to its wagon (state "board"), then sitting in it.
+function train.updateAnimal(a, dt)
     local x, y = wagonX(a.slot), SEAT_Y
     if a.seated then
         a.x, a.y, a.facing, a.moving = x, y, -1, false
@@ -187,7 +190,8 @@ function train.update(dt)
     end
 end
 
-function train.isSeated(a)
+-- The seated animals are drawn with their wagon.
+function train.hidden(a)
     return a.state == "board" and a.seated
 end
 
@@ -252,7 +256,7 @@ end
 local function drawWagon(i)
     local x, y = wagonX(i), RAIL_Y
     for _, a in ipairs(W.animals) do
-        if a.slot == i and train.isSeated(a) then
+        if a.slot == i and train.hidden(a) then
             art.animal(a.kind, x, SEAT_Y, -1, 1.1, false)
         end
     end
@@ -276,7 +280,7 @@ end
 
 -- The number on an animal's back: a little round badge above its head. The
 -- next number to find sparkles when the kids have been looking for a while.
-function train.drawBadge(a, shake)
+function train.drawOnAnimal(a, shake)
     if not a.number or a.state == "board" then return end
     local x, y = a.x + (shake or 0), a.y - art.height(a.kind) * 1.2 - 18
     shape("circle", { 1, 0.98, 0.9 }, x, y, 16)
@@ -292,7 +296,7 @@ end
 
 -- At the top: the train's numbers in order. Green: in the train; yellow:
 -- following a kid; the next one to find is bigger and pulses.
-function train.drawBoard()
+function train.drawHud()
     local n = #W.seq
     local step = 56
     local x0 = 640 - (n - 1) * step / 2

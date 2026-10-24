@@ -23,10 +23,10 @@ local T = lang.t
 -- called below when there is one for the current game (world.rules); the
 -- pens game is this file's own default rules.
 --   START_X, START_Y, ZONES (optional)   where the kids start, the biome zones
---   newRound(level), grab(k, best, fresh), arrive(k), updateAnimal(a, dt),
+--   newRound(level), grab(k, best, fresh), drop(k) (optional), arrive(k), updateAnimal(a, dt),
 --   update(dt), done(), party(), hidden(a), things(list), drawGround(),
 --   drawOnAnimal(a, shake), drawHud()
-local MODES = { train = require("train"), flash = require("flash") }
+local MODES = { train = require("train"), flash = require("flash"), path = require("path") }
 
 local world = {}
 local g = love.graphics
@@ -479,7 +479,7 @@ function world.makeBiome(biome, z)
     end
 end
 
--- mode: "fete" (the pens, default), "train" or "flash".
+-- mode: "fete" (the pens, default), "train", "flash" or "path".
 function world.start(chosen, level, mode)
     world.mode = MODES[mode] and mode or "fete"
     local R = MODES[world.mode]
@@ -613,6 +613,8 @@ function world.action(p, action)
     if not k then return end
     if action == "grab" then
         tryGrab(k, true)
+    elseif action == "drop" and world.rules and world.rules.drop then
+        world.rules.drop(k)
     elseif action == "drop" and #k.followers > 0 then
         letGo(k)
         k.dropWait = DROP_FIRST

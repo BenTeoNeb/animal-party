@@ -26,10 +26,10 @@ end
 
 local W, H = 1280, 720
 local g = love.graphics
-local state = "select"
+local state = "games"      -- "games" (choose the game), "select" (choose the kids), "play"
 local level = 1           -- 1 count, 2 add, 3 take away (chosen in the menu)
-local mode = "fete"       -- "fete" (the pens), "train" or "flash" (chosen in the menu, or up/down)
-local MODES = { "fete", "train", "flash" }
+local mode = "fete"       -- "fete" (the pens), "train", "flash" or "path" (the games screen)
+local MODES = { "fete", "train", "flash", "path" }
 local function nextMode(dir)
     for i, m in ipairs(MODES) do
         if m == mode then mode = MODES[(i - 1 + dir) % #MODES + 1] return end
@@ -81,10 +81,7 @@ local function selectAction(p, action)
         sfx.play("ready")
         return
     end
-    if action == "up" or action == "down" then        -- switch the game: pens / train / peekaboo
-        nextMode(action == "down" and 1 or -1)
-        sfx.play("select")
-    elseif action == "left" and not me.ready then
+    if action == "left" and not me.ready then
         moveChoice(p, -1)
     elseif action == "right" and not me.ready then
         moveChoice(p, 1)
@@ -94,7 +91,20 @@ local function selectAction(p, action)
         startIfReady()
     elseif action == "drop" then
         if me.ready then me.ready = false
-        elseif p == 2 then me.joined = false end
+        elseif p == 2 then me.joined = false
+        else state = "games" end                    -- player 1: back to the games
+    end
+end
+
+-- The games screen: left / right picks a game, the bottom button chooses it.
+local function gamesAction(p, action)
+    if action == "left" or action == "right" then
+        nextMode(action == "right" and 1 or -1)
+        sfx.play("select")
+    elseif action == "grab" then
+        resetSelect()
+        state = "select"
+        sfx.play("ready")
     end
 end
 
@@ -107,8 +117,7 @@ local menuStickOut = {}
 local function menuItems()
     local items = { "resume" }
     if state == "play" then table.insert(items, "to_title") end
-    if state == "select" then table.insert(items, "mode") end
-    if state == "select" then table.insert(items, "level") end
+    if state ~= "play" then table.insert(items, "level") end
     table.insert(items, "fullscreen")
     table.insert(items, "sound")
     table.insert(items, "language")
@@ -117,7 +126,6 @@ local function menuItems()
 end
 
 local function menuLabel(item)
-    if item == "mode" then return T("mode_item", T("mode_" .. mode)) end
     if item == "level" then return T("level_item", levelName()) end
     if item == "fullscreen" then return T(love.window.getFullscreen() and "fullscreen_on" or "fullscreen_off") end
     if item == "sound" then return T(soundOn and "sound_on" or "sound_off") end
@@ -139,9 +147,7 @@ local function menuChoose()
         if world.phase ~= "results" then world.logEnd("accueil") end
         menu = nil
         resetSelect()
-        state = "select"
-    elseif item == "mode" then
-        nextMode(1)
+        state = "games"
     elseif item == "level" then
         level = level % 3 + 1
     elseif item == "fullscreen" then
@@ -222,7 +228,15 @@ function love.update(dt)
         end
         return
     end
-    if state == "select" then
+    if state == "games" then
+        for p = 1, 2 do                  -- the stick moves the choice too, one step per push
+            local x = input.stickX(p)
+            local out = math.abs(x) > 0.6
+            if out and not stickWasOut[p] then gamesAction(p, x > 0 and "right" or "left") end
+            stickWasOut[p] = out
+        end
+        musique.update(dt, 0, 0, false)
+    elseif state == "select" then
         -- let the stick move the choice too, one step per push
         for p = 1, 2 do
             local x = input.stickX(p)
@@ -241,7 +255,7 @@ function love.update(dt)
         musique.update(dt, 0, 0, true)
         if world.done then
             resetSelect()
-            state = "select"
+            state = "games"
         end
     end
 end
@@ -259,7 +273,48 @@ end
 
 local PLAYER_COLORS = { { 1, 0.7, 0.2 }, { 0.4, 0.75, 1 } }
 
-local function drawSelect()
+-- A little picture of each game, around (0, 0), about 110 x 70 at size 1.
+local function drawModeIcon(m)
+    if m == "fete" then                 -- a hen and a 3
+        art.animal("poule", -20, 30, 1, 1.0, false)
+        outlined("3", fonts.big, 4, -26, 40, { 1, 0.9, 0.4 })
+    elseif m == "path" then             -- three stones, 1 2 3, and a squirrel hopping
+        for i = 0, 2 do
+            g.setColor(0.23, 0.14, 0.09)
+            g.ellipse("fill", -36 + i * 34, 18, 17, 11)
+            g.setColor(0.86, 0.84, 0.8)
+            g.ellipse("fill", -36 + i * 34, 18, 14, 8)
+            g.setFont(fonts.small)
+            g.setColor(0.23, 0.14, 0.09)
+            g.printf(tostring(i + 1), -46 + i * 34, 6, 20, "center")
+        end
+        art.animal("ecureuil", -2, -8, 1, 0.75, false)
+    elseif m == "flash" then            -- a bush with two eyes peeking out
+        art.prop("buisson", -10, 28, 1, 2.2)
+        g.setColor(1, 1, 1)
+        g.circle("fill", -20, -2, 7)
+        g.circle("fill", 0, -2, 7)
+        g.setColor(0.23, 0.14, 0.09)
+        g.circle("fill", -18, -1, 3.5)
+        g.circle("fill", 2, -1, 3.5)
+    else                                -- a little train: two wagons and the engine
+        for i = 0, 2 do
+            local c = ({ { 0.4, 0.75, 0.35 }, { 1, 0.78, 0.2 }, { 0.3, 0.55, 0.9 } })[i + 1]
+            local up = i == 2 and 12 or 0
+            g.setColor(0.23, 0.14, 0.09)
+            g.rectangle("fill", -42 + i * 28, -4 - up, 26, 24 + up, 4)
+            g.setColor(c)
+            g.rectangle("fill", -40 + i * 28, -2 - up, 22, 20 + up, 3)
+            g.setColor(0.23, 0.14, 0.09)
+            g.circle("fill", -34 + i * 28, 22, 5)
+            g.circle("fill", -22 + i * 28, 22, 5)
+        end
+    end
+end
+
+-- The background of the home screens: grass, trees, animals, the title, a
+-- subtitle, and the sound / language / level boxes at the top left.
+local function drawBackdrop(subtitle)
     local t = love.timer.getTime()
     if not art.grass(W, H, world.GRASS_TILE) then
         g.setColor(0.5, 0.75, 0.35)
@@ -274,7 +329,53 @@ local function drawSelect()
     end
 
     outlined(T("title"), fonts.title, 0, 30, W, { 1, 0.85, 0.3 })
-    outlined(T("choose"), fonts.mid, 0, 110, W)
+    outlined(T(subtitle), fonts.mid, 0, 110, W)
+
+    -- sound on/off (View / Select button) and language (shoulder buttons), top left
+    g.setColor(0.2, 0.12, 0.08, 0.6)
+    g.rectangle("fill", 14, 12, 250, 38, 12)
+    g.rectangle("fill", 14, 56, 250, 38, 12)
+    art.glyph("view", 38, 31)
+    outlined(T(soundOn and "sound_on" or "sound_off"), fonts.small, 56, 20, 200,
+        soundOn and { 0.6, 1, 0.6 } or { 0.85, 0.85, 0.85 })
+    g.setFont(fonts.small)
+    art.glyph("lr", 56, 75, 0.75)
+    outlined(T("language"), fonts.small, 82, 64, 180, { 1, 0.95, 0.6 })
+    -- the level (changed in the menu)
+    g.setColor(0.2, 0.12, 0.08, 0.6)
+    g.rectangle("fill", 14, 100, 250, 38, 12)
+    outlined(levelName(), fonts.small, 14, 108, 250, { 0.6, 0.9, 1 })
+end
+
+-- The games screen: four big cards with a picture, left / right to pick one.
+local function drawGames()
+    drawBackdrop("choose_game")
+    local t = love.timer.getTime()
+    for i, m in ipairs(MODES) do
+        local cx = 640 + (i - 2.5) * 293
+        local on = m == mode
+        local bounce = on and math.abs(math.sin(t * 5)) * 8 or 0
+        g.setColor(0.2, 0.12, 0.08, on and 0.75 or 0.5)
+        g.rectangle("fill", cx - 130, 170 - bounce, 260, 300, 24)
+        if on then
+            g.setColor(PLAYER_COLORS[1])
+            g.setLineWidth(8)
+            g.rectangle("line", cx - 130, 170 - bounce, 260, 300, 24)
+        end
+        g.push()
+        g.translate(cx, 300 - bounce)
+        g.scale(2.3)
+        drawModeIcon(m)
+        g.pop()
+        outlined(T("mode_" .. m), fonts.big, cx - 130, 404 - bounce, 260, on and { 1, 0.9, 0.4 } or { 1, 1, 1 })
+    end
+    art.hint({ "@dpad", T("choose_short"), "   ", "@a", T("go"), "   ", "@menu", T("menu_hint") },
+        W / 2, 624, fonts.small)
+end
+
+local function drawSelect()
+    drawBackdrop("choose")
+    local t = love.timer.getTime()
 
     for i, k in ipairs(art.KIDS) do
         local x = 220 + (i - 1) * 320 - 60
@@ -305,52 +406,17 @@ local function drawSelect()
         end
     end
 
-    -- sound on/off (View / Select button) and language (shoulder buttons), top left
-    g.setColor(0.2, 0.12, 0.08, 0.6)
-    g.rectangle("fill", 14, 12, 250, 38, 12)
-    g.rectangle("fill", 14, 56, 250, 38, 12)
-    art.glyph("view", 38, 31)
-    outlined(T(soundOn and "sound_on" or "sound_off"), fonts.small, 56, 20, 200,
-        soundOn and { 0.6, 1, 0.6 } or { 0.85, 0.85, 0.85 })
-    g.setFont(fonts.small)
-    art.glyph("lr", 56, 75, 0.75)
-    outlined(T("language"), fonts.small, 82, 64, 180, { 1, 0.95, 0.6 })
-    -- the level (changed in the menu)
-    g.setColor(0.2, 0.12, 0.08, 0.6)
-    g.rectangle("fill", 14, 100, 250, 38, 12)
-    outlined(levelName(), fonts.small, 14, 108, 250, { 0.6, 0.9, 1 })
-    -- the game (pens or train), top right, with a little picture; up/down switches it
+    -- the game chosen, top right (B goes back to the games)
     g.setColor(0.2, 0.12, 0.08, 0.6)
     g.rectangle("fill", 1000, 12, 266, 82, 14)
-    if mode == "fete" then
-        art.animal("poule", 1046, 84, 1, 1.0, false)
-        outlined("3", fonts.big, 1066, 36, 40, { 1, 0.9, 0.4 })
-    elseif mode == "flash" then      -- a bush with two eyes peeking out
-        art.prop("buisson", 1050, 88, 1, 2.2)
-        g.setColor(1, 1, 1)
-        g.circle("fill", 1040, 58, 7)
-        g.circle("fill", 1060, 58, 7)
-        g.setColor(0.23, 0.14, 0.09)
-        g.circle("fill", 1042, 59, 3.5)
-        g.circle("fill", 1062, 59, 3.5)
-    else
-        for i = 0, 2 do      -- a little train: two wagons and the engine
-            local c = ({ { 0.4, 0.75, 0.35 }, { 1, 0.78, 0.2 }, { 0.3, 0.55, 0.9 } })[i + 1]
-            g.setColor(0.23, 0.14, 0.09)
-            g.rectangle("fill", 1018 + i * 28, 56 - (i == 2 and 12 or 0), 26, 24 + (i == 2 and 12 or 0), 4)
-            g.setColor(c)
-            g.rectangle("fill", 1020 + i * 28, 58 - (i == 2 and 12 or 0), 22, 20 + (i == 2 and 12 or 0), 3)
-            g.setColor(0.23, 0.14, 0.09)
-            g.circle("fill", 1026 + i * 28, 82, 5)
-            g.circle("fill", 1038 + i * 28, 82, 5)
-        end
-    end
+    g.push()
+    g.translate(1060, 60)
+    drawModeIcon(mode)
+    g.pop()
     outlined(T("mode_" .. mode), fonts.mid, 1108, 34, 150, { 1, 0.95, 0.6 })
-    outlined("^", fonts.small, 1236, 12, 24, { 0.8, 0.8, 0.8 })
-    outlined("v", fonts.small, 1236, 62, 24, { 0.8, 0.8, 0.8 })
     -- how to play, with the buttons as icons
-    art.hint({ "@dpad", T("choose_short"), "   ", "@a", T("go"), "   ", "@menu", T("menu_hint") },
-        W / 2, 624, fonts.small)
+    art.hint({ "@dpad", T("choose_short"), "   ", "@a", T("go"), "   ", "@b", T("back_short"), "   ",
+        "@menu", T("menu_hint") }, W / 2, 624, fonts.small)
     if not pick[2].joined then
         outlined(T("join"), fonts.small, 0, 648, W, PLAYER_COLORS[2])
     end
@@ -392,7 +458,7 @@ function love.draw()
     g.translate((w - W * s) / 2, (h - H * s) / 2)
     g.scale(s)
     g.setScissor((w - W * s) / 2, (h - H * s) / 2, W * s, H * s)
-    if state == "select" then drawSelect() else world.draw() end
+    if state == "games" then drawGames() elseif state == "select" then drawSelect() else world.draw() end
     if menu then drawMenu() end
     g.setScissor()
 end
@@ -401,7 +467,7 @@ local function onAction(p, action)
     if action == "back" then setSound(not soundOn) return end   -- Select: sound on/off
     if menu then menuAction(action) return end
     if action == "lang" then                                     -- L1/R1: language
-        if state == "select" then lang.toggle() end
+        if state ~= "play" then lang.toggle() end
         return
     end
     -- Start opens the menu (except on the end screen, where it plays again)
@@ -409,7 +475,9 @@ local function onAction(p, action)
         openMenu()
         return
     end
-    if state == "select" then selectAction(p, action) else world.action(p, action) end
+    if state == "games" then gamesAction(p, action)
+    elseif state == "select" then selectAction(p, action)
+    else world.action(p, action) end
 end
 
 function love.joystickadded(joystick)
@@ -437,7 +505,7 @@ end
 
 function love.keypressed(key)
     if key == "m" then setSound(not soundOn) return end
-    if key == "l" and state == "select" then lang.toggle() return end
+    if key == "l" and state ~= "play" then lang.toggle() return end
     local p, action = input.keypressed(key)
     if p then onAction(p, action) end
 end

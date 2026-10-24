@@ -1,8 +1,8 @@
-# New Game! (working title)
+# Animal Party!
 
-*Nouveau Jeu !* in French. The next game made with children for children,
-built on the same framework as [Lava Rescue!](../volcan) and reusing its
-drawings. The idea is still to come.
+*La Fête des Animaux !* in French. A counting game made with children for
+children (from about 5 years old), built on the same framework as
+[Lava Rescue!](../volcan) and reusing its drawings. 1 or 2 players, together.
 
 ## What is already here
 
@@ -21,8 +21,27 @@ Copied from `volcan/` (the two games now live their own lives):
   `outils/linux/` (installer), `outils/icone/` (still draws Lava Rescue's
   icon), and the image tools.
 
-`world.lua` is a playground for now: the kids walk in the forest among the
-animals, and the bottom button says hello to the nearest one.
+## The game
+
+Each of the three pens has a sign: an animal and a number. Bring exactly
+that many of that animal into the pen. The sign is a ten-frame (two rows of
+5 boxes): an empty box shows the animal's shadow, a box fills in as each
+animal goes in, and the animals too many show in red. The animals go in one
+at a time, with a note going up the scale and the number popping up, so the
+kids can count out loud. Another animal shakes its head and stays in line.
+
+- **Level 1, count**: the pens are empty, bring 1 to 5.
+- **Level 2, add**: some animals are already inside, bring the missing ones.
+- **Level 3, take away**: some pens have too many: take the extra ones out
+  (bottom button inside the pen), then let them go outside (right button).
+
+No timer, no losing. When all three pens are right: a party and a star,
+then the next round. After 3 rounds, the next level. The level to start
+with is chosen in the menu (Start) on the home screen.
+
+**The kids' voices**: record them saying the numbers and put the files in
+`voix/fr/1.ogg`, `voix/fr/2.ogg`... (`voix/en/` in English; .ogg, .mp3 or
+.wav). The game says the numbers with their voices instead of the notes.
 
 ## Play
 
@@ -32,8 +51,8 @@ love jeu2                                           # Linux / Windows
 sh jeu2/outils/build.sh                             # -> dist/
 ```
 
-## Once the game has a name
+## Still to do
 
-Rename the folder and replace the placeholders `New Game` / `NewGame` /
-`new-game` / `Nouveau Jeu` / `nouveau-jeu` / `jeu2` (in `conf.lua`,
-`lang.lua`, `outils/`), and make a new icon.
+The folder, the window and the packages still have placeholder names
+(`New Game` / `NewGame` / `new-game` / `Nouveau Jeu` / `nouveau-jeu` /
+`jeu2`, in `conf.lua` and `outils/`), and the icon is Lava Rescue's.

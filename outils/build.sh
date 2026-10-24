@@ -33,7 +33,9 @@ done
 rm -f "$DIST/new-game.love"
 # (journal.lua is left out: the game log is for us, not for the players;
 #  without it the game simply logs nothing)
-(cd "$GAME" && zip -q -9 -r "$DIST/new-game.love" ./*.lua icone.png images -x "images/_*" "*.DS_Store" "./journal.lua")
+# (and the kids' voices counting, voix/, once they are recorded)
+(cd "$GAME" && zip -q -9 -r "$DIST/new-game.love" ./*.lua icone.png images $(test -d voix && echo voix) \
+    -x "images/_*" "*.DS_Store" "./journal.lua")
 zip -q -j "$DIST/new-game.love" "$HERE/LICENSE"      # the license travels with the game
 echo "OK  dist/new-game.love ($(du -h "$DIST/new-game.love" | cut -f1))"
 

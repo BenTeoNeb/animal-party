@@ -2,6 +2,7 @@
 --
 --   sfx.play(name)                 play a sound (several can overlap)
 --   sfx.play("grab_" .. kind)      the voice of an animal (falls back to "grab")
+--   sfx.count(n, lang)             say the number n (see below)
 -- Each play is a little higher or lower than the last, so repeated sounds
 -- don't get tiring.
 
@@ -112,6 +113,8 @@ function sfx.load()
         for _, n in ipairs({ 76, 79, 84 }) do S.bell(b, 0.9, hz(n), 1.5, 0.18) end
     end, 3.0, 0.8, 0.3), 0)
 
+    add("count", make(function(b) S.bell(b, 0, hz(72), 0.5, 0.6) end, 0.8, 0.6, 0.15), 0)
+
     -- Menus ----------------------------------------------------------------------
     add("select", make(function(b) S.pluck(b, 0, hz(79), 0.1, 0.5) end, 0.3, 0.45), 0.03)
     add("ready", make(function(b)
@@ -127,6 +130,37 @@ function sfx.play(name)
     entry.next = entry.next % VOICES + 1
     s:stop()
     s:setPitch(1 + (love.math.random() * 2 - 1) * entry.vary)
+    s:play()
+end
+
+-- Counting: the kids' own voices if they are there (voix/fr/3.ogg, .mp3 or
+-- .wav: "trois !"), otherwise a bell going up the scale with the number
+-- (1 = do, 2 = ré, 3 = mi...).
+local SCALE = { 0, 2, 4, 5, 7, 9, 11, 12, 14, 16, 17, 19 }
+local voices = {}
+
+function sfx.count(n, lang)
+    local key = lang .. n
+    if voices[key] == nil then
+        voices[key] = false
+        for _, ext in ipairs({ "ogg", "mp3", "wav" }) do
+            local path = "voix/" .. lang .. "/" .. n .. "." .. ext
+            if love.filesystem.getInfo(path) then
+                voices[key] = love.audio.newSource(path, "static")
+                break
+            end
+        end
+    end
+    if voices[key] then
+        voices[key]:stop()
+        voices[key]:play()
+        return
+    end
+    local entry = sounds.count
+    local s = entry[entry.next]
+    entry.next = entry.next % VOICES + 1
+    s:stop()
+    s:setPitch(2 ^ (SCALE[math.max(1, math.min(n, #SCALE))] / 12) * (n == 0 and 0.75 or 1))
     s:play()
 end
 

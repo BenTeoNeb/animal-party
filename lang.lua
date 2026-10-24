@@ -5,7 +5,7 @@ local lang = { current = "fr" }
 
 local TEXTS = {
     fr = {
-        title = "NOUVEAU JEU !",
+        title = "LA FÊTE DES ANIMAUX !",
         choose = "Choisis ton personnage",
         player = "J",
         ready = "Prêt !",
@@ -19,9 +19,11 @@ local TEXTS = {
         resume = "Reprendre", to_title = "Retour à l'accueil", quit = "Quitter le jeu",
         fullscreen_on = "Plein écran : oui", fullscreen_off = "Plein écran : non",
         language_item = "Langue : Français",
+        level_1 = "Compter  1 2 3", level_2 = "Ajouter  +", level_3 = "Enlever  -",
+        level_item = "Niveau : %s",
     },
     en = {
-        title = "NEW GAME!",
+        title = "ANIMAL PARTY!",
         choose = "Choose your character",
         player = "P",
         ready = "Ready!",
@@ -35,6 +37,8 @@ local TEXTS = {
         resume = "Resume", to_title = "Back to the start", quit = "Quit the game",
         fullscreen_on = "Fullscreen: on", fullscreen_off = "Fullscreen: off",
         language_item = "Language: English",
+        level_1 = "Count  1 2 3", level_2 = "Add  +", level_3 = "Take away  -",
+        level_item = "Level: %s",
     },
 }
 

@@ -44,7 +44,7 @@ oeufs.SCENE, oeufs.GROUND, oeufs.GROUND_TILE = "ferme", ferme.GROUND, ferme.GROU
 oeufs.KID_SCALE = ferme.KID_SCALE
 oeufs.YARD = { x1 = 320, y1 = 170, x2 = 960, y2 = 330 }
 local DECOR = {
-    { "ferme_grange", 140, 300, 220 }, { "ferme_barriere", 1060, 140, 52 }, { "ferme_barriere", 1190, 140, 52 },
+    { "ferme_grange", 150, 300, 220 }, { "ferme_barriere", 1060, 140, 52 }, { "ferme_barriere", 1190, 140, 52 },
     { "ferme_foin", 1150, 250, 74 }, { "ferme_foin", 1060, 270, 66, -1 },
 }
 

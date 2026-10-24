@@ -26,9 +26,19 @@ function ferme.image(name, x, y, h, f, tint)
 end
 
 -- Add decor pieces ({ name, x, y, h, f }) to the things drawn back to front.
+-- Each one stands on a soft shadow (like the animals), so it sits on the
+-- ground instead of floating.
 function ferme.things(list, decor)
     for _, d in ipairs(decor) do
-        table.insert(list, { y = d[3], draw = function() ferme.image(d[1], d[2], d[3], d[4], d[5]) end })
+        table.insert(list, { y = d[3], draw = function()
+            local im = art.image(d[1])
+            if im then
+                local w = d[4] * im:getWidth() / im:getHeight()
+                g.setColor(0, 0, 0, 0.2)
+                g.ellipse("fill", d[2] + w * 0.04, d[3] - 2, w * 0.54, math.max(6, w * 0.07))
+            end
+            ferme.image(d[1], d[2], d[3], d[4], d[5])
+        end })
     end
 end
 

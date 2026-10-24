@@ -41,10 +41,10 @@ nid.SCENE, nid.GROUND, nid.GROUND_TILE = "ferme", ferme.GROUND, ferme.GROUND_TIL
 nid.KID_SCALE = ferme.KID_SCALE
 nid.YARD = { x1 = 20, y1 = 470, x2 = 1260, y2 = 720 }
 local DECOR = {
-    { "ferme_grange", 150, 330, 230 },
+    { "ferme_grange", 165, 340, 230 },
+    { "ferme_barriere", 1035, 170, 56 }, { "ferme_barriere", 1180, 170, 56 },
     { "ferme_foin", 1110, 250, 78 }, { "ferme_foin", 1200, 300, 78, -1 }, { "ferme_foin", 1030, 310, 70 },
-    { "ferme_barriere", 1180, 170, 56 }, { "ferme_barriere", 1040, 170, 56 },
-    { "ferme_abreuvoir", 1160, 440, 54 }, { "ferme_brouette", 290, 420, 62, -1 },
+    { "ferme_abreuvoir", 1160, 440, 54 }, { "ferme_brouette", 180, 450, 58 },
 }
 
 local S = {}      -- this nest: filled, nests, phase, timer, round...

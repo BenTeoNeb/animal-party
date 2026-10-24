@@ -16,13 +16,19 @@ local train = {}
 local W, ctx
 local g = love.graphics
 
-local RAIL_Y = 690             -- the rails (the wagons' wheels)
-local PLATFORM_Y = 612         -- walk onto the platform (below this) to board the train
-local PLATFORM_X = 470
-local LOCO_X = 540             -- the engine, at the left end, facing left: the wagons
-                               -- behind it read in order, left to right (1 2 3 4 5)
-local WAGON_GAP = 70
-local SEAT_Y = RAIL_Y - 22     -- where the animals stand in their wagon
+-- The train (images/train_*.png): the engine at the left end, facing left,
+-- and the wagons behind it, read in order left to right (1 2 3 4 5), the
+-- whole train in the middle of the screen. The platform is behind the rails:
+-- walk onto it to board the train.
+local RAIL_Y = 702             -- the bottom of the wheels
+local PLATFORM_Y = 586         -- walk onto the platform (below this, along the train) to board it
+local PLATFORM_EDGE = 672      -- where its top ends and its front face starts, above the rails
+local LOCO_W, WAGON_W = 180, 112
+local WAGON_GAP = 120          -- from one wagon to the next
+local SEAT_Y = RAIL_Y - 58     -- where the animals stand in their wagon (just above its
+                               -- side: the whole animal shows)
+local WAGONS = { "train_wagon_rouge", "train_wagon_bleu", "train_wagon_jaune", "train_wagon_vert" }
+local LOCO_X = 640             -- the engine's middle (set for each train, see newRound)
 local HINT_AFTER = 10          -- seconds without finding the next one: it sparkles
 local BOARD_GAP = 0.45         -- seconds between two animals sitting down (time to count)
 
@@ -30,8 +36,8 @@ train.START_X, train.START_Y = 640, 430
 -- The three parts of the meadow (the rails take the bottom).
 train.ZONES = {
     { x1 = 470, y1 = 96, x2 = 810, y2 = 280 },       -- top, below the number board
-    { x1 = 16, y1 = 24, x2 = 450, y2 = 590 },        -- left
-    { x1 = 830, y1 = 24, x2 = 1264, y2 = 580 },      -- right
+    { x1 = 16, y1 = 24, x2 = 450, y2 = 520 },        -- left
+    { x1 = 830, y1 = 24, x2 = 1264, y2 = 520 },      -- right
 }
 
 -- ctx: helpers from world.lua (newAnimal, biomeSpot, moveToward, popup,
@@ -41,7 +47,7 @@ function train.setup(world, c)
 end
 
 local function wagonX(i)
-    return LOCO_X + 100 + (i - 1) * WAGON_GAP + (W.trainShift or 0)
+    return LOCO_X + LOCO_W / 2 + WAGON_GAP / 2 + (i - 1) * WAGON_GAP + (W.trainShift or 0)
 end
 
 -- The numbers of this round's train, in order.
@@ -61,6 +67,7 @@ end
 function train.newRound(level)
     local seq = sequenceFor(level)
     W.seq, W.trainShift, W.hintT, W.boardNope, W.seatedAt = seq, 0, 0, 0, -9
+    LOCO_X = 640 - (LOCO_W + #seq * WAGON_GAP) / 2 + LOCO_W / 2      -- the train in the middle
     local numbers = { unpack(seq) }
     -- decoys: numbers just around the train's, that are not in it
     if level == 2 then
@@ -123,7 +130,8 @@ end
 
 -- A kid on the platform: the animals following them go to their wagons.
 function train.arrive(k)
-    if k.y < PLATFORM_Y or k.x < PLATFORM_X or #k.followers == 0 then return end
+    local x1, x2 = train.platformX()
+    if k.y < PLATFORM_Y or k.x < x1 or k.x > x2 or #k.followers == 0 then return end
     for _, a in ipairs(k.followers) do
         a.state, a.slot, a.seated = "board", slotOf(a.number), false
         ctx.journal.log("monte", { joueur = k.player, numero = a.number })
@@ -164,7 +172,7 @@ end
 
 function train.party()
     sfx.play("toot")
-    ctx.stars(wagonX(1), RAIL_Y - 60, 14)
+    ctx.stars(wagonX(1), RAIL_Y - 90, 14)
 end
 
 local smoke = {}
@@ -180,7 +188,7 @@ function train.update(dt)
         -- the train leaves (to the left), puffing
         W.trainShift = W.trainShift - dt * math.min(320, (W.partyTime - 1) * 260)
         if love.math.random() < dt * 12 then
-            table.insert(smoke, { x = LOCO_X - 21 + W.trainShift, y = RAIL_Y - 84, r = 8, life = 1 })
+            table.insert(smoke, { x = LOCO_X - 36 + W.trainShift, y = RAIL_Y - 128, r = 10, life = 1.2 })
         end
     end
     for i = #smoke, 1, -1 do
@@ -198,7 +206,6 @@ end
 -- Drawing ------------------------------------------------------------------------
 
 local OUTLINE = { 0.23, 0.14, 0.09 }
-local WAGON_COLORS = { { 0.9, 0.3, 0.25 }, { 0.3, 0.55, 0.9 }, { 1, 0.78, 0.2 }, { 0.4, 0.75, 0.35 } }
 
 -- A filled shape with the thick dark-brown outline of the drawings.
 local function shape(kind, color, ...)
@@ -209,65 +216,88 @@ local function shape(kind, color, ...)
     g[kind]("fill", ...)
 end
 
-local function wheel(x, y, r)
-    shape("circle", { 0.35, 0.3, 0.3 }, x, y, r)
-    g.setColor(0.75, 0.7, 0.65)
-    g.circle("fill", x, y, r * 0.35)
+-- The platform: along the train, from a bit before the engine to a bit after
+-- the last wagon.
+function train.platformX()
+    return LOCO_X - LOCO_W / 2 - 40, wagonX(#W.seq) - (W.trainShift or 0) + WAGON_W / 2 + 40
 end
 
--- The platform and the rails, on the ground.
+-- A lamp post at the end of the platform.
+local function lamp(x, y)
+    shape("rectangle", { 0.3, 0.27, 0.27 }, x - 4, y - 92, 8, 92, 3)
+    shape("rectangle", { 0.3, 0.27, 0.27 }, x - 14, y - 104, 28, 14, 4)
+    shape("rectangle", { 1, 0.9, 0.55 }, x - 10, y - 122, 20, 20, 5)
+    shape("polygon", { 0.3, 0.27, 0.27 }, x - 16, y - 120, x + 16, y - 120, x, y - 134)
+end
+
+-- The platform (a raised wooden floor with a light edge and a darker front,
+-- right above the rails) and the rails.
 function train.drawGround()
-    shape("rectangle", { 0.86, 0.72, 0.5 }, PLATFORM_X, PLATFORM_Y, 1290 - PLATFORM_X, 40, 6)
-    g.setColor(0.7, 0.55, 0.35)
+    local x1, x2 = train.platformX()
+    local w = x2 - x1
+    g.setColor(0, 0, 0, 0.2)
+    g.rectangle("fill", x1 + 4, PLATFORM_Y + 8, w, RAIL_Y - PLATFORM_Y - 4, 10)
+    shape("rectangle", { 0.6, 0.42, 0.25 }, x1, PLATFORM_EDGE - 6, w, RAIL_Y - 12 - PLATFORM_EDGE + 6, 6)   -- front
+    shape("rectangle", { 0.88, 0.74, 0.52 }, x1, PLATFORM_Y, w, PLATFORM_EDGE - PLATFORM_Y, 10)            -- top
+    g.setColor(0.72, 0.56, 0.36)
     g.setLineWidth(2)
-    for x = PLATFORM_X + 40, 1280, 40 do g.line(x, PLATFORM_Y + 4, x, PLATFORM_Y + 36) end
-    for x = 0, 1280, 28 do      -- the sleepers, then the two rails
+    for x = x1 + 44, x2 - 10, 44 do g.line(x, PLATFORM_Y + 6, x, PLATFORM_EDGE - 14) end
+    g.setColor(1, 0.86, 0.35)                                     -- the edge
+    g.rectangle("fill", x1 + 6, PLATFORM_EDGE - 12, w - 12, 7, 3)
+    g.setColor(0.5, 0.33, 0.18)
+    for x = x1 + 18, x2 - 18, 36 do g.rectangle("fill", x, PLATFORM_EDGE + 2, 18, 4, 2) end
+    for x = 0, 1280, 30 do      -- the sleepers, then the two rails
         g.setColor(0.5, 0.36, 0.22)
-        g.rectangle("fill", x, RAIL_Y - 4, 14, 20, 2)
+        g.rectangle("fill", x, RAIL_Y - 12, 16, 24, 2)
     end
     g.setColor(0.55, 0.55, 0.6)
-    g.rectangle("fill", 0, RAIL_Y - 2, 1280, 5)
-    g.rectangle("fill", 0, RAIL_Y + 9, 1280, 5)
+    g.rectangle("fill", 0, RAIL_Y - 9, 1280, 6)
+    g.rectangle("fill", 0, RAIL_Y + 4, 1280, 6)
+    lamp(x1 + 16, PLATFORM_Y + 20)
+    lamp(x2 - 16, PLATFORM_Y + 20)
 end
 
--- The engine, drawn facing right around x = 0, then turned to face left.
+-- Draw an image w wide, the bottom of its wheels at (x, RAIL_Y); flip = -1 to
+-- face left.
+local function onRails(name, x, w, flip)
+    local im = art.image(name)
+    if not im then
+        shape("rectangle", { 0.85, 0.3, 0.25 }, x - w / 2, RAIL_Y - w * 0.55, w, w * 0.5, 8)
+        return w * 0.55
+    end
+    local sc = w / im:getWidth()
+    g.setColor(1, 1, 1)
+    g.draw(im, x, RAIL_Y + 4, 0, sc * (flip or 1), sc, im:getWidth() / 2, im:getHeight())
+    return im:getHeight() * sc
+end
+
 local function drawLoco()
-    g.push()
-    g.translate(LOCO_X + W.trainShift, 0)
-    g.scale(-1, 1)
-    local x, y = 0, RAIL_Y
-    shape("rectangle", { 0.85, 0.25, 0.2 }, x - 44, y - 62, 34, 52, 6)          -- cabin
-    shape("rectangle", { 0.55, 0.3, 0.2 }, x - 50, y - 70, 46, 10, 4)           -- its roof
-    shape("rectangle", { 0.3, 0.55, 0.9 }, x - 12, y - 46, 56, 36, 10)          -- boiler
-    shape("rectangle", { 0.3, 0.25, 0.25 }, x + 14, y - 74, 14, 28, 3)          -- chimney
-    g.setColor(1, 0.95, 0.7)
-    g.rectangle("fill", x - 38, y - 54, 22, 16, 3)                              -- window
-    shape("polygon", { 0.85, 0.25, 0.2 }, x + 44, y - 20, x + 58, y - 4, x + 44, y - 4)
-    wheel(x - 28, y - 4, 12)
-    wheel(x + 4, y - 2, 9)
-    wheel(x + 30, y - 2, 9)
-    g.pop()
+    onRails("train_loco", LOCO_X + W.trainShift, LOCO_W, -1)
     for _, p in ipairs(smoke) do
-        g.setColor(0.95, 0.95, 0.95, p.life * 0.8)
+        g.setColor(0.95, 0.95, 0.95, p.life * 0.7)
         g.circle("fill", p.x, p.y, p.r)
     end
 end
 
+-- A wagon: the animal sitting in it (drawn first: the wagon's side hides its
+-- legs), the wagon, the hitch to the one in front, and its number on the plate.
 local function drawWagon(i)
-    local x, y = wagonX(i), RAIL_Y
+    local x = wagonX(i)
     for _, a in ipairs(W.animals) do
         if a.slot == i and train.hidden(a) then
-            art.animal(a.kind, x, SEAT_Y, -1, 1.1, false)
+            art.animal(a.kind, x, SEAT_Y, -1, 1.15, false)
         end
     end
-    local c = WAGON_COLORS[(i - 1) % #WAGON_COLORS + 1]
-    shape("rectangle", c, x - 30, y - 34, 60, 26, 5)
-    ctx.outlined(tostring(W.seq[i]), ctx.fonts.badge, x - 30, y - 35, 60, { 1, 1, 1 })
-    wheel(x - 16, y - 4, 8)
-    wheel(x + 16, y - 4, 8)
     g.setColor(OUTLINE)
-    g.setLineWidth(4)
-    g.line(x - 30, y - 16, x - WAGON_GAP + 30, y - 16)       -- the hitch to the one in front
+    g.setLineWidth(5)
+    g.line(x - WAGON_W / 2 + 2, RAIL_Y - 20, x - WAGON_GAP + WAGON_W / 2 - 2, RAIL_Y - 20)
+    local h = onRails(WAGONS[(i - 1) % #WAGONS + 1], x, WAGON_W)
+    -- its number, big, in a round tag on the plate (green once its animal is in)
+    local seated = false
+    for _, a in ipairs(W.animals) do
+        if a.slot == i and train.hidden(a) then seated = true end
+    end
+    art.disk(W.seq[i], x, RAIL_Y + 4 - h + h * 0.4, 23, seated and "ok" or "plain", ctx.fonts.board)
 end
 
 -- Add the train to the things drawn back to front (by their feet).

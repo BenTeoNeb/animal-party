@@ -64,8 +64,9 @@ with is chosen in the menu (Start) on the home screen.
 ### The Animal Train
 
 Animals wearing a number wait in the meadow: call them **in
-order** and lead them onto the platform, where each one climbs into its
-numbered wagon and says its number. Only the next number follows you;
+order** and lead them onto the platform (behind the train, with its two
+lamp posts), where each one climbs into its numbered wagon and says its
+number. The engine and the four wagon colours are drawings (game-art). Only the next number follows you;
 another one shakes its head. A board at the top shows the train's numbers
 (yellow: following, green: in the train, the next one pulses); after 10
 seconds without finding it, the next animal sparkles. When everyone is in,

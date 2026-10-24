@@ -331,6 +331,7 @@ function world.makeFonts()
     fonts.badge = art.font(26)
     fonts.board = art.font(30)
     fonts.disk = art.font(36)
+    fonts.plate = art.font(22)
 end
 
 function world.load()

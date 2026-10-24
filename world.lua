@@ -35,17 +35,47 @@ local COUNT_GAP = 0.45        -- seconds between two animals going in (time to c
 
 local KINDS = { "poule", "ecureuil", "marcassin", "herisson", "renard" }
 
-local HILL_X = 920            -- the pens' side starts here
 local GRASS_TILE = 380        -- width of one tile of the grass drawing, in pixels
 world.GRASS_TILE = GRASS_TILE
 local TOP = 20
 
+-- The pens around the meadow, each one with its entrance (gate) facing the
+-- middle: two at the top corners, one at the bottom in the middle. The sign
+-- is on the far side from the gate, the animals stand near the gate.
 local PENS = {
-    { x = 960, y = 4, w = 310, h = 232, roof = { 0.9, 0.25, 0.2 }, name = "rouge" },
-    { x = 960, y = 240, w = 310, h = 232, roof = { 0.25, 0.5, 0.95 }, name = "bleue", top = false },
-    { x = 960, y = 476, w = 310, h = 232, roof = { 1, 0.78, 0.15 }, name = "jaune", top = false },
+    { x = 14, y = 4, w = 320, h = 232, gate = "bottom", roof = { 0.9, 0.25, 0.2 }, name = "rouge" },
+    { x = 946, y = 4, w = 320, h = 232, gate = "bottom", roof = { 0.25, 0.5, 0.95 }, name = "bleue" },
+    { x = 480, y = 482, w = 320, h = 232, gate = "top", roof = { 1, 0.78, 0.15 }, name = "jaune" },
 }
+for _, r in ipairs(PENS) do
+    r.hutX = r.x + r.w - 45
+    r.hutY = r.gate == "top" and r.y + r.h - 24 or r.y + 75
+end
 world.pens = PENS        -- each one: kind, target (set by newRound)
+
+-- Where the kids start: the clearing in the middle.
+local START_X, START_Y = 640, 380
+
+-- The three parts of the meadow around the clearing (between the pens), and
+-- the biomes that go in them (in a different place each game). Each kind of
+-- animal lives in one biome: that's where to find it.
+local ZONES = {
+    { x1 = 360, y1 = 24, x2 = 920, y2 = 250 },      -- top, between the two pens
+    { x1 = 16, y1 = 280, x2 = 450, y2 = 712 },      -- bottom left
+    { x1 = 830, y1 = 280, x2 = 1264, y2 = 712 },    -- bottom right
+}
+local BIOMES = {
+    { name = "pins", trees = { "sapin", "epicea", "bouleau" },
+      props = { "pomme_de_pin", "pomme_de_pin", "fougere", "champignon", "rocher" },
+      animals = { "ecureuil", "renard" } },
+    { name = "verger", trees = { "pommier", "cerisier", "fruitier" },
+      props = { "fleurs", "fleurs", "fleurs", "feuille", "buisson" },
+      animals = { "poule" } },
+    { name = "chenes", trees = { "chene", "erable", "saule" },
+      props = { "glands", "glands", "buche", "branche", "buisson", "champignon" },
+      animals = { "marcassin", "herisson" }, pond = true },
+}
+local POND_W = 210         -- how wide the pond drawing is shown
 
 -- The huts of the pens are picked at random among these drawings, three
 -- different ones each round (the ones whose image exists).
@@ -88,21 +118,24 @@ local function penAt(o)
     end
 end
 
--- Where the animals of a pen stand: below the sign, left of the hut.
-local function spotIn(r)
-    return rand(r.x + 40, r.x + r.w - 100), rand(r.y + 165, r.y + r.h - 20)
+-- Where the animals of a pen stand: everywhere but the side with the sign
+-- and the hut.
+local function penArea(r)
+    if r.gate == "top" then return r.x + 40, r.x + r.w - 40, r.y + 62, r.y + r.h - 90 end
+    return r.x + 40, r.x + r.w - 60, r.y + 115, r.y + r.h - 20
 end
 
--- The pen's sign (top left of the pen): the number, then a ten-frame of
--- boxes, 5 per row. slotAt(pen, s) is the middle of box s.
-local SIGN_DIGIT, SLOT_W, SLOT_H = 62, 34, 46
-local function signRect(pen)
-    return pen.x + 10, pen.y + 14, SIGN_DIGIT + 5 * SLOT_W + 8, 2 * SLOT_H + 8
+local function spotIn(r)
+    local x1, x2, y1, y2 = penArea(r)
+    return rand(x1, x2), rand(y1, y2)
 end
-local function slotAt(pen, s)
-    local x, y = signRect(pen)
-    local col, row = (s - 1) % 5, math.floor((s - 1) / 5)
-    return x + SIGN_DIGIT + col * SLOT_W + SLOT_W / 2, y + 4 + row * SLOT_H + SLOT_H / 2
+
+-- The pen's sign: a small plaque in the corner away from the gate and the
+-- hut, with the number it wants and its animal ("3 [fox]").
+local SIGN_W, SIGN_H = 124, 66
+local function signRect(pen)
+    if pen.gate == "top" then return pen.x + 10, pen.y + pen.h - 14 - SIGN_H, SIGN_W, SIGN_H end
+    return pen.x + 10, pen.y + 14, SIGN_W, SIGN_H
 end
 
 -- Trees are solid: push `o` out of every trunk. Each trunk is a flat ellipse at
@@ -139,26 +172,62 @@ local function separateKids()
     blockByTrees(b)
 end
 
+-- The pond is solid too (an ellipse, a little smaller than the drawing).
+local function inPond(o, margin)
+    local p = world.pond
+    if not p then return false end
+    local dx, dy = (o.x - p.x) / (p.rx + (margin or 0)), (o.y - p.y) / (p.ry + (margin or 0))
+    return dx * dx + dy * dy < 1
+end
+
+local function blockByPond(o)
+    local p = world.pond
+    if not p or not inPond(o, BODY) then return end
+    local dx, dy = (o.x - p.x) / (p.rx + BODY), (o.y - p.y) / (p.ry + BODY)
+    local d = math.sqrt(dx * dx + dy * dy)
+    if d < 0.01 then dx, dy, d = 1, 0, 1 end
+    o.x = p.x + dx / d * (p.rx + BODY)
+    o.y = p.y + dy / d * (p.ry + BODY)
+end
+
 -- The fences of the pens are solid for the kids: you can only get in through
--- the entrance on the meadow side. (px, py) is where the kid was before moving,
--- to know which side of a fence they come from.
+-- the gate. (px, py) is where the kid was before moving, to know which side
+-- of a fence they come from. Each pen's fences, with the gap of its gate:
+-- rows { y, x1, x2 } and columns { x, y1, y2 }.
 local WALL = 7             -- how thick a fence is, for the feet
+for _, r in ipairs(PENS) do
+    local top, bottom = r.y + 6, r.y + r.h - 2
+    local gx1, gx2 = r.x + r.w * art.PEN_GAP_H[1], r.x + r.w * art.PEN_GAP_H[2]
+    local gy1, gy2 = r.y + r.h * art.PEN_GAP[1], r.y + r.h * art.PEN_GAP[2]
+    r.rows, r.cols = {}, { { r.x + r.w, top, bottom } }
+    for _, y in ipairs({ top, bottom }) do
+        if (r.gate == "top" and y == top) or (r.gate == "bottom" and y == bottom) then
+            table.insert(r.rows, { y, r.x, gx1 })
+            table.insert(r.rows, { y, gx2, r.x + r.w })
+        else
+            table.insert(r.rows, { y, r.x, r.x + r.w })
+        end
+    end
+    if r.gate == "left" then
+        table.insert(r.cols, { r.x, top, gy1 })
+        table.insert(r.cols, { r.x, gy2, bottom })
+    else
+        table.insert(r.cols, { r.x, top, bottom })
+    end
+end
+
 local function blockByFences(o, px, py)
     for _, r in ipairs(PENS) do
-        local top, bottom = r.y + 6, r.y + r.h - 2
-        local gapTop, gapBottom = r.y + r.h * art.PEN_GAP[1], r.y + r.h * art.PEN_GAP[2]
-        for _, y in ipairs({ top, bottom }) do
-            if o.x > r.x - BODY and o.x < r.x + r.w + BODY and math.abs(o.y - y) < WALL then
-                local side = py < y and -1 or 1
-                o.y = y + side * WALL
+        for _, row in ipairs(r.rows) do
+            local y, x1, x2 = row[1], row[2], row[3]
+            if o.x > x1 - BODY and o.x < x2 + BODY and math.abs(o.y - y) < WALL then
+                o.y = y + (py < y and -1 or 1) * WALL
             end
         end
-        local sides = { { r.x + r.w, top, bottom }, { r.x, top, gapTop }, { r.x, gapBottom, bottom } }
-        for _, v in ipairs(sides) do
-            local x, y1, y2 = v[1], v[2], v[3]
+        for _, col in ipairs(r.cols) do
+            local x, y1, y2 = col[1], col[2], col[3]
             if o.y > y1 - WALL and o.y < y2 + WALL and math.abs(o.x - x) < BODY then
-                local side = px < x and -1 or 1
-                o.x = x + side * BODY
+                o.x = x + (px < x and -1 or 1) * BODY
             end
         end
     end
@@ -199,13 +268,13 @@ local function penCount(i)
     return n
 end
 
--- The pen's number just changed to n: say it (shown over the box that just
--- filled, or emptied), and cheer if it's right.
-local function counted(i, n, out)
+-- The pen's number just changed to n: say it (shown next to the sign), and
+-- cheer if it's right.
+local function counted(i, n)
     local pen = PENS[i]
     local right = n == pen.target
-    local x, y = slotAt(pen, math.max(1, out and n + 1 or n))
-    popup(tostring(n), x, y - 50, right and { 0.6, 1, 0.5 } or n > pen.target and { 1, 0.55, 0.45 } or nil)
+    local x, y, w, h = signRect(pen)
+    popup(tostring(n), x + w + 40, y + h / 2 - 26, right and { 0.6, 1, 0.5 } or n > pen.target and { 1, 0.55, 0.45 } or nil)
     sfx.count(n, lang.current)
     if right then
         hearts(pen.x + 90, pen.y + 60, 5)
@@ -256,19 +325,23 @@ local function newAnimal(kind)
         walk = 0, wait = rand(0, 2), anim = "repos", animT = 0 }
 end
 
--- A free spot in the meadow, not on another animal, a tree or a kid.
-local function meadowSpot(a)
+-- A free spot in the animal's biome, not on another animal, a tree, the pond
+-- or a kid, and not hidden behind a tree's leaves.
+local function biomeSpot(a)
+    local z = world.home[a.kind]
     for _ = 1, 100 do
-        a.x, a.y = rand(60, HILL_X - 90), rand(TOP + 70, world.H - 30)
-        local ok = true
+        a.x, a.y = rand(z.x1 + 30, z.x2 - 30), rand(z.y1 + 50, z.y2 - 20)
+        local ok = not inPond(a, 30)
         for _, b in ipairs(world.animals) do
-            if b ~= a and dist(a, b) < 55 then ok = false end
+            if b ~= a and dist(a, b) < 50 then ok = false end
         end
         for _, k in ipairs(world.kids) do
             if dist(a, k) < 90 then ok = false end
         end
         for _, tr in ipairs(world.trees) do
-            if dist(a, tr) < 50 then ok = false end
+            if dist(a, tr) < 50 or (math.abs(a.x - tr.x) < 50 and a.y < tr.y and a.y > tr.y - 110) then
+                ok = false
+            end
         end
         if ok then break end
     end
@@ -304,7 +377,7 @@ local function newRound()
         end
         for _ = 1, math.max(0, ask.target - ask.start) + SPARE[world.level] do
             local a = newAnimal(ask.kind)
-            meadowSpot(a)
+            biomeSpot(a)
             table.insert(world.animals, a)
         end
     end
@@ -312,7 +385,7 @@ local function newRound()
         if not wanted[kind] then
             for _ = 1, DECOYS do
                 local a = newAnimal(kind)
-                meadowSpot(a)
+                biomeSpot(a)
                 table.insert(world.animals, a)
             end
         end
@@ -323,7 +396,48 @@ local function newRound()
     journal.log("manche", { niveau = world.level, enclos = log })
 end
 
+-- A biome in zone z: its trees in a few little groves, its pond, its ground
+-- things; its animals will live there.
+function world.makeBiome(biome, z)
+    for _, kind in ipairs(biome.animals) do world.home[kind] = z end
+    local w, h = z.x2 - z.x1, z.y2 - z.y1
+    if biome.pond and art.image("mare") then
+        local im = art.image("mare")
+        local ph = POND_W * im:getHeight() / im:getWidth()
+        world.pond = { x = z.x1 + w / 2 + rand(-w, w) * 0.15, y = z.y1 + h * 0.55,
+            rx = POND_W * 0.4, ry = ph * 0.3, h = ph }
+    end
+    -- trees: their feet low enough that the leaves stay in the zone, grouped
+    -- around 2 or 3 grove centers, never on the pond
+    local groves = {}
+    for _ = 1, h > 300 and 3 or 2 do
+        table.insert(groves, { x = rand(z.x1 + 60, z.x2 - 60), y = rand(z.y1 + 130, z.y2 - 10) })
+    end
+    local want = math.floor(w * h / 32000)
+    for _ = 1, 300 do
+        local c = groves[love.math.random(#groves)]
+        local tree = { x = clamp(c.x + rand(-110, 110), z.x1 + 40, z.x2 - 40),
+            y = clamp(c.y + rand(-70, 70), z.y1 + 125, z.y2 - 8), s = rand(0.85, 1.05),
+            kind = biome.trees[love.math.random(#biome.trees)], f = love.math.random() < 0.5 and -1 or 1 }
+        local ok = not inPond(tree, 45) and dist(tree, { x = START_X, y = START_Y }) > 150
+        for _, other in ipairs(world.trees) do
+            if dist(tree, other) < 85 then ok = false end
+        end
+        if ok then table.insert(world.trees, tree) end
+        if #world.trees >= want + (world.treeCount or 0) then break end
+    end
+    world.treeCount = #world.trees
+    if art.image("fleurs") then
+        for _ = 1, math.floor(w * h / 9000) do
+            local prop = { name = biome.props[love.math.random(#biome.props)], x = rand(z.x1 + 10, z.x2 - 10),
+                y = rand(z.y1 + 20, z.y2 - 5), f = love.math.random() < 0.5 and -1 or 1, s = rand(0.85, 1.15) }
+            if not inPond(prop, 10) then table.insert(world.props, prop) end
+        end
+    end
+end
+
 function world.start(chosen, level)
+    world.treeCount = 0
     world.time = 0
     world.done = false
     world.level = level or 1
@@ -335,38 +449,21 @@ function world.start(chosen, level)
     for i, c in ipairs(chosen) do
         table.insert(world.kids, {
             player = c.player, look = art.KIDS[c.kid],
-            x = HILL_X / 2 - 40 + (i - 1) * 80, y = world.H / 2 + 40, facing = 1,
+            x = START_X - 40 + (i - 1) * 80, y = START_Y, facing = 1,
             walk = 0, anim = "repos", animT = 0, cheer = 0, followers = {},
         })
     end
 
-    world.trees = {}
-    -- a few trees, spread out so they don't hide the kids too much,
-    -- each one a different species as long as there are enough
-    local kinds = {}
-    for kind in pairs(art.TREES) do table.insert(kinds, kind) end
-    table.sort(kinds)
-    shuffle(kinds)
-    for _ = 1, 200 do
-        local tree = { x = rand(50, HILL_X - 110), y = rand(TOP + 120, world.H - 10), s = rand(0.8, 1),
-            kind = kinds[#world.trees % #kinds + 1], f = love.math.random() < 0.5 and -1 or 1 }
-        local ok = math.abs(tree.x - HILL_X / 2) > 140 or math.abs(tree.y - world.H / 2) > 120
-        for _, other in ipairs(world.trees) do
-            if dist(tree, other) < 200 then ok = false end
-        end
-        if ok then table.insert(world.trees, tree) end
-        if #world.trees >= 8 then break end
+    world.trees, world.props, world.pond, world.home = {}, {}, nil, {}
+    for i, biome in ipairs(shuffle({ unpack(BIOMES) })) do
+        world.makeBiome(biome, ZONES[i])
     end
-
-    -- the drawn forest things, if their images exist
-    world.props = {}
-    if art.image("fleurs") then
-        for _ = 1, art.image("herbe") and 40 or 60 do
-            table.insert(world.props, { name = art.randomProp(), x = rand(20, HILL_X - 30),
-                y = rand(TOP + 15, world.H - 5), f = love.math.random() < 0.5 and -1 or 1, s = rand(0.85, 1.15) })
-        end
-        table.sort(world.props, function(a, b) return a.y < b.y end)
+    -- a few flowers in the clearing
+    for _ = 1, 10 do
+        table.insert(world.props, { name = love.math.random() < 0.7 and "fleurs" or "feuille",
+            x = rand(470, 810), y = rand(270, 470), f = love.math.random() < 0.5 and -1 or 1, s = rand(0.85, 1.1) })
     end
+    table.sort(world.props, function(a, b) return a.y < b.y end)
 
     local kidNames = {}
     for _, k in ipairs(world.kids) do kidNames[#kidNames + 1] = k.look.id end
@@ -421,7 +518,7 @@ local function tryGrab(k, fresh)
     table.insert(k.followers, best)
     hearts(best.x, best.y - 40, 1)
     sfx.play("grab_" .. best.kind)       -- each animal has its own voice
-    if out and wasCounted then counted(pen, penCount(pen), true) end
+    if out and wasCounted then counted(pen, penCount(pen)) end
 end
 
 -- An animal goes into pen i: it walks to a spot inside, and is counted
@@ -536,6 +633,7 @@ local function updateKid(k, dt)
         if #k.trail > 400 then table.remove(k.trail) end
     end
     blockByTrees(k)
+    blockByPond(k)
     blockByFences(k, px, py)
     if len > 0.1 then
         k.walk = k.walk + dt * 12
@@ -588,8 +686,10 @@ local function updateAnimal(a, dt)
     a.animT = a.animT + dt
     a.nope = math.max(0, (a.nope or 0) - dt)
     if a.state == "free" then
-        wander(a, dt, 40, HILL_X - 60, TOP + 40, world.H - 20, 40)
+        local z = world.home[a.kind]
+        wander(a, dt, z.x1 + 30, z.x2 - 30, z.y1 + 50, z.y2 - 20, 40)
         blockByTrees(a)
+        blockByPond(a)
     elseif a.state == "follow" then
         for _, k in ipairs(world.kids) do
             for i, b in ipairs(k.followers) do
@@ -606,8 +706,8 @@ local function updateAnimal(a, dt)
                 counted(a.pen, penCount(a.pen))
             end
         else
-            local r = PENS[a.pen]
-            wander(a, dt, r.x + 40, r.x + r.w - 100, r.y + 165, r.y + r.h - 20, 30)
+            local x1, x2, y1, y2 = penArea(PENS[a.pen])
+            wander(a, dt, x1, x2, y1, y2, 30)
         end
     end
     if a.moving and a.moving > 150 then setAnim(a, "course")
@@ -638,6 +738,17 @@ local function updateEffects(dt)
         local p = world.popups[i]
         p.age = p.age + dt
         if p.age >= p.life then table.remove(world.popups, i) end
+    end
+    -- a tree is see-through while a kid or an animal is behind its leaves
+    for _, tr in ipairs(world.trees) do
+        local top = tr.y - (art.TREES[tr.kind] or 125) * tr.s * 0.9
+        local behind = false
+        for _, list in ipairs({ world.kids, world.animals }) do
+            for _, o in ipairs(list) do
+                if o.y < tr.y - 4 and o.y > top + 30 and math.abs(o.x - tr.x) < 55 * tr.s then behind = true end
+            end
+        end
+        tr.see = clamp((tr.see or 1) + (behind and -dt or dt) * 4, 0.45, 1)
     end
     for _, pen in ipairs(PENS) do
         pen.nope = math.max(0, (pen.nope or 0) - dt)
@@ -712,15 +823,18 @@ local function ground()
         g.setColor(0.5, 0.75, 0.35)
         g.rectangle("fill", 0, 0, world.W, world.H)
     end
-    -- the pens' side: lighter
-    if grass then g.setColor(1, 1, 0.75, 0.3) else g.setColor(0.62, 0.82, 0.45) end
-    g.rectangle("fill", HILL_X, 0, world.W - HILL_X, world.H)
+    local p = world.pond
+    if p then
+        local im = art.image("mare")
+        local sc = POND_W / im:getWidth()
+        g.setColor(1, 1, 1)
+        g.draw(im, p.x, p.y, 0, sc, sc, im:getWidth() / 2, im:getHeight() * 0.49)
+    end
     for _, p in ipairs(world.props) do art.prop(p.name, p.x, p.y, p.f, p.s) end
 end
 
--- The pen's sign: the number it wants, and a ten-frame of its animal. A box
--- fills in for each animal inside (an empty box shows the animal's shadow);
--- the animals too many are shown in red boxes.
+-- The pen's sign: the number it wants and its animal. It turns green with a
+-- star when the pen is right, and the number turns red when there are too many.
 local function drawSign(i)
     local pen = PENS[i]
     local n = penCount(i)
@@ -734,30 +848,14 @@ local function drawSign(i)
     g.rectangle("fill", x - 4, y - 4, w + 8, h + 8, 14)
     if right then g.setColor(0.72, 0.9, 0.5, a) else g.setColor(0.93, 0.78, 0.55, a) end
     g.rectangle("fill", x, y, w, h, 11)
-    outlined(tostring(pen.target), fonts.sign, x, y + h / 2 - 38, SIGN_DIGIT,
-        right and { 0.75, 1, 0.6, a } or { 1, 0.9, 0.4, a })
-    for s = 1, math.max(pen.target, n) do
-        local cx, cy = slotAt(pen, s)
-        local bx, by = cx - SLOT_W / 2 + 2, cy - SLOT_H / 2 + 2
-        local extra = s > pen.target
-        if extra then g.setColor(1, 0.72, 0.66, a) else g.setColor(1, 0.97, 0.88, a) end
-        g.rectangle("fill", bx, by, SLOT_W - 4, SLOT_H - 4, 7)
-        if extra then g.setColor(0.85, 0.25, 0.2, a) else g.setColor(0.6, 0.42, 0.25, a) end
-        g.setLineWidth(2)
-        g.rectangle("line", bx, by, SLOT_W - 4, SLOT_H - 4, 7)
-        if s > n then
-            art.tint = { 0.25, 0.15, 0.1, 0.35 * a }      -- empty: the animal's shadow
-        elseif extra then
-            art.tint = { 1, 0.5, 0.45, a }                -- one too many
-        else
-            art.tint = { 1, 1, 1, a }
-        end
-        art.animal(pen.kind, cx, by + SLOT_H - 9, 1, 0.82, false)
-        art.tint = nil
-    end
+    local color = right and { 0.75, 1, 0.6, a } or n > pen.target and { 1, 0.45, 0.35, a } or { 1, 0.9, 0.4, a }
+    outlined(tostring(pen.target), fonts.sign, x, y + h / 2 - 38, 58, color)
+    art.tint = { 1, 1, 1, a }
+    art.animal(pen.kind, x + 88, y + h - 8, 1, 1.05, false)
+    art.tint = nil
     if right then
         g.setColor(1, 1, 1, a)
-        art.star(x + w - 6, y + 6, 15, true)
+        art.star(x + w - 4, y + 4, 14, true)
     end
     g.pop()
 end
@@ -780,7 +878,7 @@ local function hud()
     local n = world.roundsWon
     if n == 0 then return end
     local shown = math.min(n, 12)
-    local x0 = HILL_X / 2 - (shown - 1) * 17
+    local x0 = START_X - (shown - 1) * 17
     g.setColor(0.2, 0.12, 0.08, 0.55)
     g.rectangle("fill", x0 - 24, 6, (shown - 1) * 34 + 48, 40, 16)
     for s = 1, shown do art.star(x0 + (s - 1) * 34, 26, 14, true) end
@@ -798,7 +896,9 @@ function world.draw()
     table.sort(things, function(a, b) return a.y < b.y end)
     for _, o in ipairs(things) do
         if o.tree then
+            if (o.tree.see or 1) < 1 then art.tint = { 1, 1, 1, o.tree.see } end
             art.tree(o.tree.x, o.tree.y, o.tree.s, false, o.tree.kind, o.tree.f)
+            art.tint = nil
         elseif o.animal then
             drawAnimal(o.animal)
         else
@@ -824,7 +924,7 @@ function world.draw()
     if world.phase == "party" then
         local s = 1 + 0.15 * math.sin(world.partyTime * 6)
         g.push()
-        g.translate(HILL_X / 2, world.H / 2 - 40)
+        g.translate(START_X, START_Y - 60)
         g.scale(s * math.min(1, world.partyTime * 3))
         art.star(0, 0, 90, true)
         g.pop()

@@ -640,8 +640,11 @@ function art.hut(x, y, roof, name, img)
     g.rectangle("fill", x - 9, y - 22, 18, 22, 6)
 end
 
--- The entrance of the pens, on the left side: from 20% to 85% of the height.
+-- The entrance of the pens, on the side facing the meadow (r.gate): on the
+-- left side from 20% to 85% of the height, on the top or bottom side from
+-- 32% to 68% of the width.
 art.PEN_GAP = { 0.2, 0.85 }
+art.PEN_GAP_H = { 0.32, 0.68 }
 
 -- The fence drawings: a front section, a lone post and an open gate.
 local FENCE_H = 30         -- height of the fence, in pixels
@@ -659,9 +662,24 @@ local function fenceRow(x1, x2, y)
     end
 end
 
+local function post(x, y)
+    local im = art.image("poteau")
+    local sc = (FENCE_H + 2) / im:getHeight()
+    g.setColor(1, 1, 1)
+    g.draw(im, x, y, 0, sc, sc, im:getWidth() / 2, im:getHeight())
+end
+
+-- A row with the entrance in the middle (a post on each side of it).
+local function gateRow(r, y)
+    local x1, x2 = r.x + r.w * art.PEN_GAP_H[1], r.x + r.w * art.PEN_GAP_H[2]
+    fenceRow(r.x, x1, y)
+    fenceRow(x2, r.x + r.w, y)
+    post(x1, y)
+    post(x2, y)
+end
+
 -- A column of posts with a rail between them, from y1 to y2, at x.
 local function fenceColumn(x, y1, y2)
-    local post = art.image("poteau")
     local n = math.max(1, math.floor((y2 - y1) / 26 + 0.5))
     local step = (y2 - y1) / n
     for i = 0, n - 1 do        -- the rails, behind the posts
@@ -671,56 +689,44 @@ local function fenceColumn(x, y1, y2)
         g.setColor(0.9, 0.66, 0.45)
         g.rectangle("fill", x - 2, a + 1, 4, b - a - 2, 2)
     end
-    local sc = (FENCE_H + 2) / post:getHeight()
-    g.setColor(1, 1, 1)
-    for i = 0, n do
-        g.draw(post, x, y1 + i * step, 0, sc, sc, post:getWidth() / 2, post:getHeight())
-    end
+    for i = 0, n do post(x, y1 + i * step) end
 end
 
--- A fenced pen. The opening is on the left side, facing the forest.
--- r.top = false: no fence on top (the pen above already has one there).
+-- A fenced pen. r.gate: the side of the entrance, "left" (default), "top" or
+-- "bottom". r.top = false: no fence on top (the pen above already has one).
+-- r.hutX, r.hutY: where the hut stands (top right by default).
 function art.pen(r)
     g.setColor(0.9, 0.82, 0.5, 0.55)
     g.rectangle("fill", r.x, r.y, r.w, r.h, 10)
+    local hx, hy = r.hutX or r.x + r.w - 45, r.hutY or r.y + 75
+    local gate = r.gate or "left"
     if art.image("barriere_face") and art.image("poteau") then
         local top, bottom = r.y + 6, r.y + r.h - 2
         local gapTop, gapBottom = r.y + r.h * art.PEN_GAP[1], r.y + r.h * art.PEN_GAP[2]
-        if r.top ~= false then fenceRow(r.x, r.x + r.w, top) end
+        if gate == "top" then gateRow(r, top)
+        elseif r.top ~= false then fenceRow(r.x, r.x + r.w, top) end
         fenceColumn(r.x + r.w, top, bottom)
-        fenceColumn(r.x, top, gapTop)
-        local gate = art.image("portillon")
-        art.hut(r.x + r.w - 45, r.y + 75, r.roof, r.name, r.hut)
-        fenceColumn(r.x, gapBottom, bottom)
-        if gate then   -- the open gate at the entrance
-            local sc = (FENCE_H + 14) / gate:getHeight()
-            g.setColor(1, 1, 1)
-            g.draw(gate, r.x - 4, gapBottom, 0, sc, sc, gate:getWidth() * 0.2, gate:getHeight())
+        if gate == "left" then
+            fenceColumn(r.x, top, gapTop)
+            art.hut(hx, hy, r.roof, r.name, r.hut)
+            fenceColumn(r.x, gapBottom, bottom)
+            local im = art.image("portillon")
+            if im then   -- the open gate at the entrance
+                local sc = (FENCE_H + 14) / im:getHeight()
+                g.setColor(1, 1, 1)
+                g.draw(im, r.x - 4, gapBottom, 0, sc, sc, im:getWidth() * 0.2, im:getHeight())
+            end
+        else
+            fenceColumn(r.x, top, bottom)
+            art.hut(hx, hy, r.roof, r.name, r.hut)
         end
-        fenceRow(r.x, r.x + r.w, bottom)
+        if gate == "bottom" then gateRow(r, bottom) else fenceRow(r.x, r.x + r.w, bottom) end
         return
     end
-    art.hut(r.x + r.w - 45, r.y + 75, r.roof, r.name, r.hut)
+    art.hut(hx, hy, r.roof, r.name, r.hut)
     g.setColor(0.55, 0.36, 0.2)
     g.setLineWidth(4)
-    local gapTop, gapBottom = r.y + r.h * art.PEN_GAP[1], r.y + r.h * art.PEN_GAP[2]
-    local function rail(x1, y1, x2, y2)
-        g.line(x1, y1, x2, y2)
-        g.line(x1, y1 + 8, x2, y2 + 8)
-    end
-    rail(r.x, r.y, r.x + r.w, r.y)
-    rail(r.x, r.y + r.h - 8, r.x + r.w, r.y + r.h - 8)
-    g.line(r.x + r.w, r.y, r.x + r.w, r.y + r.h)
-    g.line(r.x, r.y, r.x, gapTop)
-    g.line(r.x, gapBottom, r.x, r.y + r.h)
-    g.setColor(0.45, 0.28, 0.15)
-    for _, px in ipairs({ r.x, r.x + r.w / 3, r.x + r.w * 2 / 3, r.x + r.w }) do
-        g.rectangle("fill", px - 4, r.y - 6, 8, 18, 2)
-        g.rectangle("fill", px - 4, r.y + r.h - 12, 8, 18, 2)
-    end
-    for _, py in ipairs({ gapTop, gapBottom }) do
-        g.rectangle("fill", r.x - 4, py - 9, 8, 18, 2)
-    end
+    g.rectangle("line", r.x, r.y, r.w, r.h, 6)
 end
 
 return art

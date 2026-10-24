@@ -31,8 +31,8 @@ green with a star when the pen is right; its number turns red when there are
 too many. Another animal shakes its head and stays in line.
 
 The meadow has three biomes, in a different place each game: a pine wood
-(squirrels and foxes), an orchard (hens) and an oak wood with a pond
-(piglets and hedgehogs). Each animal lives in its biome, and goes back there
+(squirrels and foxes), an orchard (hens and sheep) and an oak wood with a
+pond (piglets, hedgehogs and does). Each animal lives in its biome, and goes back there
 when it's let go somewhere else. Trees turn see-through when someone is
 behind them.
 

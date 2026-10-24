@@ -88,6 +88,7 @@ end
 -- How tall each image is drawn (at size 1).
 local HEIGHTS = {
     kid = 92, renard = 46, poule = 42, ecureuil = 46, marcassin = 38, herisson = 34,
+    mouton = 43, biche = 60,
     -- the big mamas (event "big animal"): about as tall as Rami
     maman_renard = 92, maman_poule = 84, maman_ecureuil = 92, maman_marcassin = 96, maman_herisson = 76,
     arbre = 125, maison = 80, volcan = 230,
@@ -127,7 +128,7 @@ art.KIDS = {
 
 art.ANIMALS = {
     renard = "Renard", poule = "Poule", ecureuil = "Écureuil",
-    marcassin = "Marcassin", herisson = "Hérisson",
+    marcassin = "Marcassin", herisson = "Hérisson", mouton = "Mouton", biche = "Biche",
 }
 
 local function shadow(x, y, w)
@@ -356,7 +357,7 @@ function art.animal(kind, x, y, f, s, withShadow, anim, t)
         sprite(im, x, y - hop, f, HEIGHTS[kind] * s, rot)
         return
     end
-    DRAW[kind](x, y, f, s)
+    (DRAW[kind] or DRAW.poule)(x, y, f, s)     -- (no drawing in code for the newer animals)
 end
 
 function art.heart(x, y, s, color)

@@ -54,6 +54,14 @@ function sfx.load()
         S.noise(b, 0.00, 0.08, 0.5, 0.8, 40)
         S.noise(b, 0.12, 0.08, 0.5, 0.8, 40)
     end, 0.28, 0.6, 0.05), 0.08)
+    add("grab_mouton", make(function(b)           -- "bêêê"
+        S.chirp(b, 0.0, 330, 300, 0.45, 0.6, "saw", 0.09, 0.6)
+        S.lowpass(b, 0.2)
+    end, 0.6, 0.7, 0.12), 0.06)
+    add("grab_biche", make(function(b)            -- a soft, high bleat
+        S.chirp(b, 0.0, 950, 720, 0.18, 0.45, "sine", 0.05, 0.7)
+        S.chirp(b, 0.22, 900, 700, 0.12, 0.3, "sine", 0.05, 0.7)
+    end, 0.45, 0.6, 0.15), 0.06)
     add("grab", make(function(b)                  -- (any other) a happy "pop"
         S.chirp(b, 0, 500, 1100, 0.1, 0.5, "sine", nil, 0.5)
     end, 0.2, 0.6, 0.1), 0.06)

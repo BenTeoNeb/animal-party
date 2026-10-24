@@ -30,10 +30,10 @@ local KID_SPEED = 230         -- running, arms free
 local KID_WALK_SPEED = 185    -- walking, when animals are following you
 local ROUNDS_PER_LEVEL = 3    -- rounds won before the next level
 local SPARE = { 2, 1, 1 }     -- (per level) animals more than needed in the meadow, of each pen's kind
-local DECOYS = 2              -- animals of each kind that no pen wants
+local DECOYS = 1              -- animals of each kind that no pen wants
 local COUNT_GAP = 0.45        -- seconds between two animals going in (time to count out loud)
 
-local KINDS = { "poule", "ecureuil", "marcassin", "herisson", "renard" }
+local KINDS = { "poule", "ecureuil", "marcassin", "herisson", "renard", "mouton", "biche" }
 
 local GRASS_TILE = 380        -- width of one tile of the grass drawing, in pixels
 world.GRASS_TILE = GRASS_TILE
@@ -70,10 +70,10 @@ local BIOMES = {
       animals = { "ecureuil", "renard" } },
     { name = "verger", trees = { "pommier", "cerisier", "fruitier" },
       props = { "fleurs", "fleurs", "fleurs", "feuille", "buisson" },
-      animals = { "poule" } },
+      animals = { "poule", "mouton" } },
     { name = "chenes", trees = { "chene", "erable", "saule" },
       props = { "glands", "glands", "buche", "branche", "buisson", "champignon" },
-      animals = { "marcassin", "herisson" }, pond = true },
+      animals = { "marcassin", "herisson", "biche" }, pond = true },
 }
 local POND_W = 210         -- how wide the pond drawing is shown
 
@@ -129,7 +129,7 @@ end
 -- Where the animals of a pen stand: everywhere but the side with the sign
 -- and the hut, never behind the sign (an animal is drawn up to ANIMAL_H
 -- pixels above its feet).
-local ANIMAL_H = 58
+local ANIMAL_H = 74
 local function penArea(r)
     local _, sy, _, sh = signRect(r)
     if r.gate == "top" then return r.x + 40, r.x + r.w - 40, r.y + 62, sy - 8 end
@@ -275,6 +275,7 @@ end
 -- cheer if it's right.
 local function counted(i, n)
     local pen = PENS[i]
+    pen.countedAt = world.time
     local right = n == pen.target
     local x, y, w, h = signRect(pen)
     popup(tostring(n), x + w + 40, y + h / 2 - 26, right and { 0.6, 1, 0.5 } or n > pen.target and { 1, 0.55, 0.45 } or nil)
@@ -704,7 +705,10 @@ local function updateAnimal(a, dt)
         if not a.counted then
             a.countIn = a.countIn - dt
             if not moveToward(a, a.tx, a.ty, 120, dt) then a.walk = 0 end
-            if a.countIn <= 0 then
+            -- counted once inside, and not right after the one before (time
+            -- to count out loud)
+            local pen = PENS[a.pen]
+            if a.countIn <= 0 and penAt(a) == a.pen and world.time - (pen.countedAt or -9) >= COUNT_GAP then
                 a.counted = true
                 counted(a.pen, penCount(a.pen))
             end

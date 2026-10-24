@@ -118,24 +118,27 @@ local function penAt(o)
     end
 end
 
--- Where the animals of a pen stand: everywhere but the side with the sign
--- and the hut.
-local function penArea(r)
-    if r.gate == "top" then return r.x + 40, r.x + r.w - 40, r.y + 62, r.y + r.h - 90 end
-    return r.x + 40, r.x + r.w - 60, r.y + 115, r.y + r.h - 20
-end
-
-local function spotIn(r)
-    local x1, x2, y1, y2 = penArea(r)
-    return rand(x1, x2), rand(y1, y2)
-end
-
 -- The pen's sign: a small plaque in the corner away from the gate and the
 -- hut, with the number it wants and its animal ("3 [fox]").
 local SIGN_W, SIGN_H = 124, 66
 local function signRect(pen)
     if pen.gate == "top" then return pen.x + 10, pen.y + pen.h - 14 - SIGN_H, SIGN_W, SIGN_H end
     return pen.x + 10, pen.y + 14, SIGN_W, SIGN_H
+end
+
+-- Where the animals of a pen stand: everywhere but the side with the sign
+-- and the hut, never behind the sign (an animal is drawn up to ANIMAL_H
+-- pixels above its feet).
+local ANIMAL_H = 58
+local function penArea(r)
+    local _, sy, _, sh = signRect(r)
+    if r.gate == "top" then return r.x + 40, r.x + r.w - 40, r.y + 62, sy - 8 end
+    return r.x + 40, r.x + r.w - 60, sy + sh + 8 + ANIMAL_H, r.y + r.h - 20
+end
+
+local function spotIn(r)
+    local x1, x2, y1, y2 = penArea(r)
+    return rand(x1, x2), rand(y1, y2)
 end
 
 -- Trees are solid: push `o` out of every trunk. Each trunk is a flat ellipse at

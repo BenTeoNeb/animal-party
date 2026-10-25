@@ -464,7 +464,7 @@ end
 function world.makeBiome(biome, z)
     for _, kind in ipairs(biome.animals) do world.home[kind] = z end
     local w, h = z.x2 - z.x1, z.y2 - z.y1
-    if biome.pond and art.image("mare") then
+    if biome.pond and art.image("mare") and not (world.rules and world.rules.NO_POND) then
         local im = art.image("mare")
         local ph = POND_W * im:getHeight() / im:getWidth()
         world.pond = { x = z.x1 + w / 2 + rand(-w, w) * 0.15, y = z.y1 + h * 0.55,
@@ -745,7 +745,8 @@ local function updateKid(k, dt)
     local px, py = k.x, k.y
     local speed = (leading and KID_WALK_SPEED or KID_SPEED) * k.look.speed
     k.x = clamp(k.x + dx * speed * dt, 20, world.W - 20)
-    k.y = clamp(k.y + dy * speed * dt, TOP + 20, world.H - 8)
+    local top = math.max(TOP + 20, world.rules and world.rules.MIN_Y or 0)   -- (the train: not in the sky)
+    k.y = clamp(k.y + dy * speed * dt, top, world.H - 8)
     -- footprints: the followers walk along this trail, in a neat line
     k.trail = k.trail or {}
     local last = k.trail[1]

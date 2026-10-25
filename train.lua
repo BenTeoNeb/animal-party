@@ -46,6 +46,8 @@ train.START_X, train.START_Y = 640, 450
 local HORIZON = 230            -- where the meadow meets the trees
 local FAR_Y, NEAR_Y = 260, 600 -- depth: smallest at FAR_Y, full size at NEAR_Y
 local FAR_SCALE = 0.62
+train.MIN_Y = HORIZON + 40     -- the kids' feet stay on the meadow (not in the trees or the sky)
+train.NO_POND = true           -- (the pond is drawn from above: not in this side view)
 -- The three parts of the meadow (the rails take the bottom); their feet stay
 -- below the trees on the horizon.
 train.ZONES = {

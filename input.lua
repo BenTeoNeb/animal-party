@@ -2,7 +2,8 @@
 --
 --   input.move(p)    -> dx, dy  (each between -1 and 1)
 --   input.stickX(p)  -> left stick x, for menus
--- and main.lua gets (player, action) pairs from gamepadpressed / keypressed.
+-- and main.lua gets (player, action) pairs from gamepadpressed / keypressed,
+-- and from input.triggers() every frame (R2 works as A, L2 as B).
 
 local input = {}
 
@@ -92,12 +93,38 @@ function input.move(p)
     return dx, dy
 end
 
--- Is this action's button held down right now (any of its buttons or keys)?
+-- The triggers are axes, not buttons: R2 does what A does, L2 what B does.
+local TRIGGERS = { triggerright = "grab", triggerleft = "drop" }
+local PULLED = 0.5                -- how far a trigger is pulled to count as pressed
+local wasPulled = {}              -- wasPulled[p][axis]
+
+local function pulled(js, axis)
+    return js and js:isGamepad() and js:getGamepadAxis(axis) > PULLED
+end
+
+-- Every frame: the triggers just pulled, as (player, action) pairs.
+function input.triggers()
+    local out = {}
+    for p = 1, 2 do
+        wasPulled[p] = wasPulled[p] or {}
+        for axis, action in pairs(TRIGGERS) do
+            local now = pulled(slots[p], axis) or false
+            if now and not wasPulled[p][axis] then out[#out + 1] = { p, action } end
+            wasPulled[p][axis] = now
+        end
+    end
+    return out
+end
+
+-- Is this action's button held down right now (any of its buttons, triggers or keys)?
 function input.held(p, action)
     local js = slots[p]
     if js and js:isGamepad() then
         for button, a in pairs(BUTTONS) do
             if a == action and js:isGamepadDown(button) then return true end
+        end
+        for axis, a in pairs(TRIGGERS) do
+            if a == action and pulled(js, axis) then return true end
         end
     end
     local key = KEYS[p][action]

@@ -248,8 +248,11 @@ function love.load()
     end
 end
 
+local onAction               -- (below)
+
 function love.update(dt)
     dt = math.min(dt, 1 / 30)
+    for _, pa in ipairs(input.triggers()) do onAction(pa[1], pa[2]) end    -- R2 = A, L2 = B
     if menu then
         for p = 1, 2 do
             local y = input.stickY(p)
@@ -616,7 +619,7 @@ function love.draw()
     g.setScissor()
 end
 
-local function onAction(p, action)
+onAction = function(p, action)
     if action == "back" then setSound(not soundOn) return end   -- Select: sound on/off
     if menu then menuAction(action) return end
     if action == "lang" then                                     -- L1/R1: language

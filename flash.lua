@@ -37,7 +37,7 @@ flash.STEPS = {
     { places = 3, group = { 1, 3 }, show = 4, choices = 4 },
     { places = 3, group = { 1, 4 }, show = 3.5, choices = 4 },
 }
-local STAND = 0.5                        -- seconds standing on a stone to choose it
+local STAND = 1.5                        -- seconds standing on a stone to choose it (or press A on it)
 local COUNT_GAP = 0.45                   -- seconds between two numbers when counting them
 
 -- The hiding places: the drawing, how tall it is shown, and where they stand
@@ -168,7 +168,17 @@ local function choose(stone, k)
     end
 end
 
-function flash.grab() end                    -- nothing to call here: just look
+-- A on a stone chooses it right away (no waiting).
+function flash.grab(k, _, fresh)
+    if not fresh or S.phase ~= "choose" or k.autoTo then return end
+    for _, st in ipairs(S.stones) do
+        if not st.off and ctx.dist(k, st) < STONE_R then
+            st.stand = 0
+            choose(st, k)
+            return
+        end
+    end
+end
 
 function flash.arrive() end                  -- (the stones are checked in flash.update)
 

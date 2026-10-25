@@ -28,7 +28,7 @@ local STONES = 11                -- 0 to 10
 local HOP_TIME = 0.4             -- seconds in the air
 local NEAR = 150                 -- how close to the animal a kid must be to make it hop
 local PER_ROUND = 5              -- trips in a round
-local STAND = 0.6                -- seconds standing on a stone to answer with it
+local STAND = 1.5                -- seconds standing on a stone to answer with it (or press A on it)
 local ON_STONE = 40              -- how close to a stone's middle is standing on it
 local AUTO_GAP = 0.15            -- seconds between the hops of the proof
 
@@ -120,7 +120,21 @@ end
 -- The bottom button, next to the animal, once the kid has tried an answer:
 -- one hop the sign's way (one press, one hop: holding the button does nothing
 -- more, so each hop is counted).
+local answer                     -- (below)
+local function stoneUnder(k)      -- the stone a kid stands on, if any
+    for m = 0, STONES - 1 do
+        local x, y = stoneAt(m)
+        if ctx.dist(k, { x = x, y = y }) < ON_STONE then return m end
+    end
+end
+
 function path.grab(k, _, fresh)
+    -- on a stone: A answers with it right away (no waiting)
+    local m = fresh and not k.autoTo and stoneUnder(k)
+    if m and m ~= S.at and not S.off[m] and S.phase == "play" and not S.auto then
+        answer(m, k)
+        return
+    end
     if not fresh or not S.help or S.auto or S.phase ~= "play" or not near(k) then return end
     if S.hops < S.n then
         hop(S.dir)
@@ -139,7 +153,7 @@ end
 function path.arrive() end
 
 -- A kid answered with stone m (and walks back to the start).
-local function answer(m, k)
+answer = function(m, k)
     k.autoTo = { path.START_X, path.START_Y }
     ctx.journal.log("reponse", { joueur = k.player, depart = S.start, sauts = S.n * S.dir, choisi = m,
         juste = m == S.answer, aide = S.help })

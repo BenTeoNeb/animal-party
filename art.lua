@@ -131,9 +131,13 @@ art.KIDS = {
       speed = SPEED, carry = CARRY, reach = REACH,
       skin = { 0.96, 0.8, 0.65 }, hair = { 0.5, 0.28, 0.12 },
       top = { 0.2, 0.75, 0.65 }, bow = { 0.95, 0.3, 0.4 } },
-    -- Rhita, the grown-up: a third taller than Zina and Lila (168 px against
-    -- 126), plays the same as the kids
-    { id = "rhita", name = "Rhita", size = 1.33, style = "short",
+}
+
+-- The characters who are not played (not in the character screen), drawn
+-- with art.kid like the kids. Rhita, the grown-up: a third taller than Zina
+-- and Lila (168 px against 126); her animations are in images/rhita*.
+art.NPCS = {
+    rhita = { id = "rhita", name = "Rhita", size = 1.33, style = "short",
       speed = SPEED, carry = CARRY, reach = REACH,
       skin = { 0.93, 0.76, 0.6 }, hair = { 0.08, 0.06, 0.05 },
       top = { 0.95, 0.95, 0.95 }, bottom = { 0.5, 0.5, 0.52 } },

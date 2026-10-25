@@ -26,7 +26,7 @@ end
 
 local W, H = 1280, 720
 local g = love.graphics
-local state = "games"      -- "games" (choose the game), "select" (choose the kids), "play"
+local state = "select"     -- "select" (choose the kids), then "games" (choose the game), "play"
 local level = 1           -- 1 count, 2 add, 3 take away (chosen in the menu)
 local mode = "fete"       -- "fete" (the pens), "train", "flash" or "path" (the games screen)
 local MODES = { "fete", "train", "flash", "path", "nid", "oeufs" }
@@ -66,16 +66,28 @@ local function moveChoice(p, dir)
     sfx.play("select")
 end
 
+-- Everybody who joined is ready: on to the games screen.
 local function startIfReady()
     for p = 1, 2 do
         if pick[p].joined and not pick[p].ready then return end
     end
+    state = "games"
+end
+
+-- The game chosen on the games screen: start it with the kids chosen before.
+local function startGame()
     local chosen = {}
     for p = 1, 2 do
         if pick[p].joined then table.insert(chosen, { player = p, kid = pick[p].choice }) end
     end
     world.start(chosen, level, mode, playMode)
     state = "play"
+end
+
+-- Back to the character screen (from the games screen): nobody ready.
+local function backToSelect()
+    for p = 1, 2 do pick[p].ready = false end
+    state = "select"
 end
 
 local function selectAction(p, action)
@@ -96,8 +108,7 @@ local function selectAction(p, action)
         startIfReady()
     elseif action == "drop" then
         if me.ready then me.ready = false
-        elseif p == 2 then me.joined = false
-        else state = "games" end                    -- player 1: back to the games
+        elseif p == 2 then me.joined = false end
     end
 end
 
@@ -128,9 +139,11 @@ local function gamesAction(p, action)
         nextMode(action == "down" and 3 or -3)
         sfx.play("select")
     elseif action == "grab" then
-        resetSelect()
-        state = "select"
         sfx.play("ready")
+        startGame()
+    elseif action == "drop" then                  -- B: back to the characters
+        sfx.play("select")
+        backToSelect()
     end
 end
 
@@ -174,8 +187,7 @@ local function menuChoose()
     elseif item == "to_title" then
         if world.phase ~= "results" then world.logEnd("accueil") end
         menu = nil
-        resetSelect()
-        state = "games"
+        state = "games"                           -- (the same kids: choose another game)
     elseif item == "playmode" then
         playMode = playMode == "learn" and "challenge" or "learn"
     elseif item == "level" then
@@ -287,10 +299,7 @@ function love.update(dt)
         -- and musique.update's tension adds drums: both unused for now)
         if (world.duck or 0) > 0 then musique.duck(world.duck); world.duck = 0 end
         musique.update(dt, 0, 0, true)
-        if world.done then
-            resetSelect()
-            state = "games"
-        end
+        if world.done then state = "games" end
     end
 end
 
@@ -528,8 +537,14 @@ local function drawGames()
         g.setColor(art.OUTLINE)
         g.printf(T("mode_" .. m), cx - 122, top + 140 - bounce, 244, "center")
     end
-    art.hint({ "@dpad", T("choose_short"), "   ", "@a", T("go"), "   ", "@menu", T("menu_hint") },
-        W / 2, 624, fonts.small)
+    -- the kids chosen, top right (B goes back to them)
+    local kids = {}
+    for p = 1, 2 do if pick[p].joined then kids[#kids + 1] = art.KIDS[pick[p].choice] end end
+    local bw = 40 + #kids * 70
+    art.paper(1268 - bw, 12, bw, 100)
+    for i, k in ipairs(kids) do art.kid(k, 1268 - bw + 55 + (i - 1) * 70, 104, 1, 0.9, 0) end
+    art.hint({ "@dpad", T("choose_short"), "   ", "@a", T("go"), "   ", "@b", T("back_short"), "   ",
+        "@menu", T("menu_hint") }, W / 2, 624, fonts.small)
 end
 
 local function drawSelect()
@@ -566,18 +581,9 @@ local function drawSelect()
         end
     end
 
-    -- the game chosen, top right (B goes back to the games)
-    art.paper(1000, 12, 266, 82)
-    g.push()
-    g.translate(1060, 60)
-    drawModeIcon(mode)
-    g.pop()
-    g.setFont(fonts.mid)
-    g.setColor(art.OUTLINE)
-    g.printf(T("mode_" .. mode), 1108, 36, 150, "center")
     -- how to play, with the buttons as icons
-    art.hint({ "@dpad", T("choose_short"), "   ", "@a", T("go"), "   ", "@b", T("back_short"), "   ",
-        "@menu", T("menu_hint") }, W / 2, 624, fonts.small)
+    art.hint({ "@dpad", T("choose_short"), "   ", "@a", T("go"), "   ", "@menu", T("menu_hint") },
+        W / 2, 624, fonts.small)
     if not pick[2].joined then
         outlined(T("join"), fonts.small, 0, 648, W, PLAYER_COLORS[2])
     end

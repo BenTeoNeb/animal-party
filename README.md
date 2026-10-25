@@ -29,9 +29,11 @@ Copied from `volcan/` (the two games now live their own lives):
 
 ## The games
 
-The game starts on a **games screen**: big pictures in two rows, the stick
-or D-pad to pick one, the bottom button to choose it. Then each kid picks Rami, Zina or
-Lila (the right button goes back to the games). The level to start with is
+The game starts with the characters: each kid picks Rami, Zina or Lila
+(player 2 joins with any button). Then the **games screen**: big pictures in
+two rows, the stick or D-pad to pick one, the bottom button to start it (the
+right button goes back to the characters). After a game, or "back" in the
+menu, it comes back to the games screen with the same kids. The level to start with is
 in the menu (Start).
 
 ### Difficulty: small steps that adapt

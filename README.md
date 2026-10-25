@@ -36,6 +36,17 @@ right button goes back to the characters). After a game, or "back" in the
 menu, it comes back to the games screen with the same kids. The level to start with is
 in the menu (Start).
 
+### Two players
+
+Player 2 joins on the character screen with any button. In the pens and
+the train, each kid leads their own animals to the same goal. In the egg
+game, what the two kids deliver adds up on the stall ("your boxes + my
+eggs"; a delivery that would make too many is refused). In the nest's
+"all at once" steps, the hens of both kids in front of the hen house add
+up (one alone with too few waits for the other). In Peekaboo and the path
+the kids answer in turns: a star over the kid whose turn it is; the other
+one cannot answer.
+
 ### Difficulty: small steps that adapt
 
 Each game has a ladder of 6 to 8 small steps (the `STEPS` table at the top

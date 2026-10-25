@@ -141,11 +141,25 @@ function nid.arrive(k)
         end
         k.followers = stay
         if #stay > 0 then refuse(stay) end
-    elseif #k.followers == need then
-        for _, a in ipairs(k.followers) do enter(a) end
-        k.followers = {}
     else
-        refuse(k.followers)
+        -- all at once: the hens of every kid standing in front of the nest
+        -- add up (two kids: "my 2 + your 3"); too few with a second kid
+        -- around: they wait for the other one
+        local here, total = {}, 0
+        for _, o in ipairs(W.kids) do
+            if o.atNest and #o.followers > 0 then here[#here + 1] = o; total = total + #o.followers end
+        end
+        if total == need then
+            for _, o in ipairs(here) do
+                for _, a in ipairs(o.followers) do enter(a) end
+                o.followers = {}
+            end
+            return
+        elseif total < need and #W.kids > 1 then
+            sfx.play("select")
+            return
+        end
+        for _, o in ipairs(here) do refuse(o.followers) end
         if S.way == "covered" then S.peek = 2 end   -- the doors open: look at the nest
         ctx.journal.log("non", { joueur = k.player, amene = #k.followers, manque = need })
     end

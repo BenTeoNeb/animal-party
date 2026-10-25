@@ -32,6 +32,7 @@ local STAND = 1.5                -- seconds standing on a stone to answer with i
 local ON_STONE = 40              -- how close to a stone's middle is standing on it
 local AUTO_GAP = 0.15            -- seconds between the hops of the proof
 
+path.TURNS = true                -- with two kids, they answer in turns
 path.START_X, path.START_Y = 640, 520
 -- The biomes above and below the path.
 path.ZONES = {
@@ -130,7 +131,7 @@ end
 
 function path.grab(k, _, fresh)
     -- on a stone: A answers with it right away (no waiting)
-    local m = fresh and not k.autoTo and stoneUnder(k)
+    local m = fresh and not k.autoTo and W.myTurn(k) and stoneUnder(k)
     if m and m ~= S.at and not S.off[m] and S.phase == "play" and not S.auto then
         answer(m, k)
         return
@@ -159,6 +160,7 @@ answer = function(m, k)
         juste = m == S.answer, aide = S.help })
     if m == S.answer then
         ctx.answer(not S.help)                  -- right the first time? (adapts the next trips)
+        W.nextTurn()                            -- (two kids: the other one answers the next)
         S.auto, S.t = true, 0.3                 -- the animal hops there, to show it
     else
         S.off[m], S.nope[m], S.help = true, 0.6, true
@@ -174,7 +176,7 @@ local function standOnStones(dt)
         local who
         for _, k in ipairs(W.kids) do
             if ctx.dist(k, { x = x, y = y }) < ON_STONE then
-                if S.lock[m] ~= k and not k.autoTo then who = k end
+                if S.lock[m] ~= k and not k.autoTo and W.myTurn(k) then who = k end
             elseif S.lock[m] == k then
                 S.lock[m] = nil
             end

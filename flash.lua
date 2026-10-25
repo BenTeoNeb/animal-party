@@ -49,6 +49,7 @@ local PLACES = {
     { { 320, 305 }, { 640, 285 }, { 960, 305 } },
 }
 
+flash.TURNS = true               -- with two kids, they answer in turns
 flash.START_X, flash.START_Y = 640, 540      -- below the animals: not in front of them
 -- The biomes keep to the edges: the hiding places, the animals and the
 -- stones are in the middle.
@@ -157,6 +158,7 @@ local function choose(stone, k)
     sendKidsBack()
     if stone.value == S.n then
         ctx.answer(S.tries == 1)              -- (adapts the difficulty from the next one)
+        W.nextTurn()                          -- (two kids: the other one answers the next)
         S.phase, S.t, S.counted = "right", 0.3, 0
         stone.right = true
         goOut()
@@ -170,7 +172,7 @@ end
 
 -- A on a stone chooses it right away (no waiting).
 function flash.grab(k, _, fresh)
-    if not fresh or S.phase ~= "choose" or k.autoTo then return end
+    if not fresh or S.phase ~= "choose" or k.autoTo or not W.myTurn(k) then return end
     for _, st in ipairs(S.stones) do
         if not st.off and ctx.dist(k, st) < STONE_R then
             st.stand = 0
@@ -189,7 +191,7 @@ local function standOnStones(dt)
         local who
         for _, k in ipairs(W.kids) do
             if ctx.dist(k, st) < STONE_R then
-                if st.lock ~= k and not k.autoTo then who = k end
+                if st.lock ~= k and not k.autoTo and W.myTurn(k) then who = k end
             elseif st.lock == k then
                 st.lock = nil                    -- stepped off: may choose it now
             end

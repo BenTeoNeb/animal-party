@@ -554,6 +554,9 @@ function world.start(chosen, level, mode, playMode)
     world.steps = R and #R.STEPS or #STEPS
     world.level = progress.start(world.mode, kidNames, level, world.steps, world.challenge)
     world.ladder = { step = world.level }
+    -- turns (the games where one answer is for everybody: Peekaboo, the path):
+    -- with two kids, they answer one after the other (R.TURNS)
+    world.turn = (R and R.TURNS and #world.kids > 1) and world.kids[1].player or nil
     journal.start({ joueurs = #chosen, enfants = kidNames, mode = world.mode, niveau = world.level,
         langue = lang.current })
     newRound()
@@ -1058,11 +1061,30 @@ local function drawSign(i)
     g.pop()
 end
 
+-- With turns: is it kid k's turn? And the next kid's turn.
+function world.myTurn(k)
+    return not world.turn or world.turn == k.player
+end
+
+function world.nextTurn()
+    if not world.turn then return end
+    for i, k in ipairs(world.kids) do
+        if k.player == world.turn then
+            world.turn = world.kids[i % #world.kids + 1].player
+            return
+        end
+    end
+end
+
 -- (a game may draw the kids bigger: world.rules.KID_SCALE, e.g. on the farm,
 -- so they are in proportion with the market stall)
 local function drawKid(k)
     local s = world.rules and world.rules.KID_SCALE or 1.25
     art.kid(k.look, k.x, k.y, k.facing, s, k.walk, k.anim, k.animT)
+    if world.turn == k.player then          -- its turn: a big star over its head
+        local hop = math.abs(math.sin(world.time * 5)) * 8
+        art.star(k.x, k.y - 96 * s * k.look.size - 34 - hop, 16, true)
+    end
     if #world.kids > 1 then
         outlined(T("player") .. k.player, fonts.small, k.x - 30, k.y - 96 * s * k.look.size, 60,
             k.player == 1 and { 1, 0.75, 0.3 } or { 0.5, 0.8, 1 })

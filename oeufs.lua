@@ -98,6 +98,7 @@ local function newDelivery()
     S.target, S.tens, S.ones = target, tens, ones
     -- (in the challenge, the boxes-and-eggs pictures only come after a mistake)
     S.items, S.phase, S.t, S.nope, S.help, S.counted, S.sum = {}, "play", 0, 0, st.pics and not W.challenge, 0, nil
+    S.pool = { boxes = 0, eggs = 0 }       -- (two kids: what is already on the table)
     S.clean = true
     local boxes, eggs
     boxes = tens + (W.level == 1 and 1 or 2)
@@ -176,14 +177,25 @@ function oeufs.drop(k)
     sfx.play("drop")
 end
 
+-- A delivery. With two kids, what they bring adds up on the stall's table
+-- ("your boxes + my eggs"): it waits there until the total is right; one
+-- that would make too many is refused (the kid keeps it). Alone, a delivery
+-- must be right by itself.
 local function deliver(k)
-    local total = k.boxes * 10 + k.eggs
-    ctx.journal.log("livre", { joueur = k.player, boites = k.boxes, oeufs = k.eggs, demande = S.target })
+    local pb, pe = S.pool.boxes, S.pool.eggs
+    local total = (pb + k.boxes) * 10 + pe + k.eggs
+    ctx.journal.log("livre", { joueur = k.player, boites = k.boxes, oeufs = k.eggs, demande = S.target,
+        deja = pb * 10 + pe })
     if total == S.target then
         ctx.answer(S.clean)
         S.phase, S.t, S.counted, S.by = "count", 0.4, 0, k
-        S.inBoxes, S.inEggs = k.boxes, k.eggs
+        S.inBoxes, S.inEggs = pb + k.boxes, pe + k.eggs
+        S.pool.boxes, S.pool.eggs = 0, 0
         k.boxes, k.eggs = 0, 0
+    elseif #W.kids > 1 and total < S.target then
+        S.pool.boxes, S.pool.eggs = pb + k.boxes, pe + k.eggs   -- waits for the other kid
+        k.boxes, k.eggs = 0, 0
+        sfx.play("select")
     else
         S.nope, S.help, S.clean = 0.6, true, false
         sfx.play("full")
@@ -296,7 +308,16 @@ function oeufs.things(list)
     table.insert(list, { y = CART_Y, draw = function()
         local shake = math.sin(S.nope * 40) * 6 * S.nope / 0.6
         ferme.image("etal", CART_X + shake, CART_Y, CART_H)
-        if S.phase == "count" or S.phase == "done" then
+        if S.phase == "play" and (S.pool.boxes > 0 or S.pool.eggs > 0) then   -- waiting for more
+            for i = 1, S.pool.boxes do
+                local x, y = onTable(i)
+                ferme.box(x + shake, y, TABLE_BOX, 10)
+            end
+            if S.pool.eggs > 0 then
+                local x, y = onTable(S.pool.boxes + 1)
+                ferme.box(x + shake, y, TABLE_BOX, S.pool.eggs)
+            end
+        elseif S.phase == "count" or S.phase == "done" then
             local nb = math.min(S.counted, S.inBoxes)
             for i = 1, nb do
                 local x, y = onTable(i)

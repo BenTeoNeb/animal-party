@@ -6,6 +6,7 @@ local input = require("input")
 local sfx = require("sfx")
 local art = require("art")
 local world = require("world")
+local comfort = require("comfort")
 local musique = require("musique")
 -- the game log (journal.lua) is not shipped (see build.sh): without it, nothing is logged
 local hasJournal, journal = pcall(require, "journal")
@@ -160,6 +161,7 @@ local function menuItems()
     if state ~= "play" then table.insert(items, "level") end
     table.insert(items, "fullscreen")
     table.insert(items, "sound")
+    table.insert(items, "comfort")
     table.insert(items, "language")
     table.insert(items, "quit")
     return items
@@ -170,6 +172,7 @@ local function menuLabel(item)
     if item == "playmode" then return T("playmode_item", T("playmode_" .. playMode)) end
     if item == "fullscreen" then return T(love.window.getFullscreen() and "fullscreen_on" or "fullscreen_off") end
     if item == "sound" then return T(soundOn and "sound_on" or "sound_off") end
+    if item == "comfort" then return T(comfort.on and "comfort_on" or "comfort_off") end
     if item == "language" then return T("language_item") end
     return T(item)
 end
@@ -196,6 +199,8 @@ local function menuChoose()
         love.window.setFullscreen(not love.window.getFullscreen(), "desktop")
     elseif item == "sound" then
         setSound(not soundOn)
+    elseif item == "comfort" then
+        comfort.set(not comfort.on)
     elseif item == "language" then
         lang.toggle()
     elseif item == "quit" then
@@ -249,6 +254,7 @@ function love.load()
         pcall(love.window.setIcon, love.image.newImageData("icone.png"))
     end
     sfx.load()
+    comfort.load()
     world.load()
     musique.load()
     art.preload()
@@ -400,6 +406,22 @@ local function drawMenuIcon(item, x, y)
             g.line(x + 7, y - 7, x + 17, y + 7)
             g.line(x + 17, y - 7, x + 7, y + 7)
         end
+    elseif item == "comfort" then       -- a snail (gentle motion): in color when on
+        local shell = comfort.on and { 0.95, 0.65, 0.3 } or { 0.75, 0.75, 0.75 }
+        local body = comfort.on and { 0.75, 0.9, 0.5 } or { 0.85, 0.85, 0.85 }
+        g.setColor(o)
+        g.rectangle("fill", x - 17, y + 4, 34, 11, 5)
+        g.setColor(body)
+        g.rectangle("fill", x - 15, y + 6, 30, 7, 3)
+        g.setColor(o)
+        g.circle("fill", x - 2, y - 2, 12)
+        g.setColor(shell)
+        g.circle("fill", x - 2, y - 2, 9.5)
+        g.setColor(o)
+        g.setLineWidth(2)
+        g.arc("line", "open", x - 2, y - 2, 5, 0, 4.5)
+        g.line(x + 12, y + 5, x + 15, y - 6)                   -- the eye stalk
+        g.circle("fill", x + 15, y - 7, 2)
     elseif item == "language" then      -- the flag of the language
         g.setColor(o)
         g.rectangle("fill", x - 16, y - 11, 32, 22, 3)

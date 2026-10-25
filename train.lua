@@ -16,6 +16,8 @@ local art = require("art")
 local sfx = require("sfx")
 local lang = require("lang")
 local input = require("input")
+local scene25 = require("scene25")
+local comfort = require("comfort")
 
 local train = {}
 local W, ctx
@@ -47,7 +49,9 @@ train.START_X, train.START_Y = 640, 450
 -- trees all follow train.depth (80 % at the horizon, full size at the
 -- bottom: a gentle perspective); the ground is also squashed from top to
 -- bottom (FORESHORTEN: it lies flat, seen at an angle), and moving up the
--- screen (away) is slower than moving across (Y_SPEED).
+-- screen (away) is slower than moving across (Y_SPEED). The camera is
+-- scene25.lua (the scene-2-5d skill in game-maker); in "gentle motion"
+-- (comfort.lua) the far layers stand still and the train goes slower.
 local HORIZON = 230            -- where the meadow meets the trees
 local FAR_SCALE = 0.8          -- how big things are at the horizon
 local FORESHORTEN = 0.55       -- the ground seen at an angle: squashed from top to bottom
@@ -63,16 +67,25 @@ train.ZONES = {
     { x1 = 830, y1 = 268, x2 = 1264, y2 = 520 },     -- right
 }
 
+-- (DRIVE_SPEED, DRIVE_ACCEL: see the driving, below)
+local S = scene25.new({ horizon = HORIZON, far = FAR_SCALE, squash = FORESHORTEN,
+                        maxSpeed = 280, accel = 150 })
+
+-- The scene follows the world's scroll and the comfort setting.
+local function sync()
+    S.scroll = W.scroll or 0
+    S.comfort = comfort.on
+end
+
 -- How big things are drawn at height y on the screen (1: near, smaller far).
 function train.depth(y)
-    local u = math.max(0, math.min(1, (y - HORIZON) / (720 - HORIZON)))
-    return FAR_SCALE + (1 - FAR_SCALE) * u
+    return S:depth(y)
 end
 
 -- How far things at height y have moved to the right while the train drives
 -- away (the camera follows the train: near things go by faster).
 function train.offset(y)
-    return (W.scroll or 0) * train.depth(y)
+    return (W.scroll or 0) * S:depth(y)
 end
 local SPREAD = 150             -- the numbered animals stand at least this far apart
 
@@ -240,10 +253,11 @@ local DRIVE_WAIT = 6           -- seconds the full train waits for a driver
 -- speed changes by at most DRIVE_ACCEL a second (no jolt), up to DRIVE_SPEED.
 -- At the end of the trip the landscape stops and the train rolls on, off the
 -- left of the screen, before the fade.
-local DRIVE_SPEED = 280        -- the train's top speed, pixels a second
-local DRIVE_ACCEL = 150        -- pixels a second, per second (about 2 s to full speed)
+local DRIVE_SPEED = S.maxSpeed -- the train's top speed, pixels a second (half in comfort)
+local DRIVE_ACCEL = S.accel    -- pixels a second, per second (about 2 s to full speed)
 local CAMERA_LOCO_X = 250      -- where the engine stays while the landscape goes by
-local TRIP = 1700              -- how far it goes before the next train
+local TRIP = 1700              -- how far it goes before the next train (half in comfort:
+                               -- about as long, at half the speed)
 local CAB_NEAR = 120           -- how close to the engine a kid climbs in
 
 function train.party()
@@ -285,6 +299,8 @@ end
 local function updateDrive(dt)
     local d = W.drive
     if not d or d.gone then return end
+    sync()
+    local trip = comfort.on and TRIP / 2 or TRIP
     if not d.by and not d.auto then
         d.wait = d.wait + dt
         for _, k in ipairs(W.kids) do              -- walking up to the engine: climb in
@@ -301,16 +317,15 @@ local function updateDrive(dt)
     elseif d.auto then
         want = -DRIVE_SPEED
     end
-    if (W.scroll or 0) >= TRIP then want = -DRIVE_SPEED end   -- the end: it goes, whatever the stick
-    local step = DRIVE_ACCEL * dt
-    d.speed = d.speed + math.max(-step, math.min(step, want - d.speed))
+    if (W.scroll or 0) >= trip then want = -DRIVE_SPEED end   -- the end: it goes, whatever the stick
+    d.speed = S:approach(d.speed, want, dt)                     -- (gently, capped)
     -- the train rolls to the left of the screen, then stays there and the
     -- landscape goes by instead (the camera follows it); at the end of the
     -- trip, the landscape stops and the train rolls on, off the screen
     local move = d.speed * dt
     local room = (CAMERA_LOCO_X - LOCO_X) - W.trainShift       -- (negative: how far it can still go)
     local roll = math.max(move, math.min(0, room))
-    if (W.scroll or 0) >= TRIP then roll = move end
+    if (W.scroll or 0) >= trip then roll = move end
     W.trainShift = math.min(0, W.trainShift + roll)
     W.scroll = (W.scroll or 0) - (move - roll)
     if d.speed < -20 and love.math.random() < dt * 12 then
@@ -350,56 +365,30 @@ end
 
 -- Drawing ------------------------------------------------------------------------
 
--- A landscape layer, repeated (every other copy mirrored, so the joins are
--- seamless), its bottom at y, h tall, scrolled by dx.
-local function band(name, y, h, dx)
+-- A landscape layer (scene25: repeated, every other copy mirrored), its
+-- bottom at y, h tall, going by at f times the front's speed.
+local function band(name, y, h, f)
     local im = art.image(name)
-    if not im then return end
-    local sc = h / im:getHeight()
-    local w = im:getWidth() * sc
-    local x = (dx % (2 * w)) - 2 * w
-    g.setColor(1, 1, 1)
-    local i = 0
-    while x < 1280 do
-        if i % 2 == 0 then g.draw(im, x, y - h, 0, sc, sc)
-        else g.draw(im, x + w, y - h, 0, -sc, sc) end
-        x, i = x + w, i + 1
-    end
+    if im then S:band(im, y, h, f) end
 end
 
--- The meadow's grass in perspective: thin strips, smaller further up, which
--- go by at their own speed when the landscape scrolls.
-local quad
+-- The meadow in perspective (one mesh, scene25), then a light haze far
+-- away, just before the trees (it helps the eye read the meadow as going
+-- away, not up).
 local function perspectiveGrass()
     local im = art.image("herbe")
-    if not im then
+    if im then
+        S:ground(im, 380)
+    else
         g.setColor(0.5, 0.75, 0.35)
         g.rectangle("fill", 0, HORIZON, 1280, 720 - HORIZON)
-        return
     end
-    im:setWrap("repeat", "repeat")
-    quad = quad or g.newQuad(0, 0, 1, 1, im:getDimensions())
-    local k = im:getWidth() / 380                  -- texture pixels per meadow pixel (at full size)
-    local v, STRIP = 0, 3
-    g.setColor(1, 1, 1)
-    for y = HORIZON - 4, 720, STRIP do
-        local s = train.depth(y)                   -- across: the same scale as the sprites
-        local sy = s * FORESHORTEN                 -- from top to bottom: squashed (lying flat)
-        local u0 = ((-640) / s + 640 - (W.scroll or 0)) * k
-        quad:setViewport(u0, v, 1280 / s * k, STRIP / sy * k)
-        g.draw(im, quad, 0, y, 0, s / k, sy / k)
-        v = v + STRIP / sy * k
-    end
-    -- a light haze far away, just before the trees (it helps the eye read
-    -- the meadow as going away, not up)
-    for i = 0, 19 do
-        g.setColor(0.86, 0.93, 0.98, 0.42 * (1 - i / 20))
-        g.rectangle("fill", 0, HORIZON - 4 + i * 6, 1280, 6)
-    end
+    S:haze(120)
 end
 
 -- Before everything: the sky, the far hills, the meadow, the trees.
 function train.drawBack()
+    sync()
     local sc = W.scroll or 0
     for i = 0, 23 do                                          -- the sky
         local u = i / 23
@@ -408,15 +397,15 @@ function train.drawBack()
     end
     g.setColor(1, 1, 1, 0.85)                                 -- two soft clouds
     for i, c in ipairs({ { 230, 70, 60 }, { 900, 50, 75 } }) do
-        local x = (c[1] + sc * 0.05) % 1500 - 110
+        local x = (c[1] + (comfort.on and 0 or sc * 0.05)) % 1500 - 110
         g.ellipse("fill", x, c[2], c[3], c[3] * 0.35)
         g.ellipse("fill", x + c[3] * 0.5, c[2] - 10, c[3] * 0.6, c[3] * 0.3)
     end
-    band("train_loin", HORIZON + 8, 150, sc * 0.12)
+    band("train_loin", HORIZON + 8, 150, 0.12)                 -- (still in comfort)
     perspectiveGrass()
     -- the trees stand on the meadow's far edge: they go by with the grass
     -- there (not slower: they would slide over their own ground)
-    band("train_milieu", HORIZON + 16, 92, sc * train.depth(HORIZON + 16))
+    band("train_milieu", HORIZON + 16, 92, S:depth(HORIZON + 16))
     return true
 end
 
@@ -458,8 +447,7 @@ function train.drawGround()
     local sc = W.scroll or 0
     x1, x2 = x1 + sc, x2 + sc                                  -- (left behind when the train goes)
     local top, front = PLATFORM_Y, PLATFORM_EDGE               -- far edge, near edge of the floor
-    local inset = (x2 - x1) * (1 - train.depth(top) / train.depth(front)) / 2
-    local fx1, fx2 = x1 + inset, x2 - inset                    -- the far edge, a little narrower
+    local fx1, fx2 = S:floor(x1, x2, top, front)               -- the far edge, a little narrower
     g.setColor(0, 0, 0, 0.18)                                  -- its shadow on the grass
     g.polygon("fill", fx1 - 6, top + 6, fx2 + 6, top + 6, x2 + 8, front + CURB + 4, x1 - 8, front + CURB + 4)
     shape("polygon", { 0.88, 0.74, 0.52 }, fx1, top, fx2, top, x2, front, x1, front)   -- the floor
@@ -476,9 +464,14 @@ function train.drawGround()
     shape("rectangle", { 0.6, 0.42, 0.25 }, x1, front, x2 - x1, CURB, 4)                -- the front curb
     g.setColor(0.48, 0.32, 0.18)
     for x = x1 + 24, x2 - 24, 48 do g.rectangle("fill", x, front + 4, 4, CURB - 8, 1) end
-    for x = -30, 1280, 30 do    -- the sleepers (going by), then the two rails
-        g.setColor(0.5, 0.36, 0.22)
-        g.rectangle("fill", x + sc % 30, RAIL_Y - 12, 16, 24, 2)
+    -- the gravel bed, then the sleepers going by: few, wide apart and close
+    -- in color to the gravel (many contrasted stripes moving fast are a
+    -- known motion-sickness trigger), then the two rails
+    g.setColor(0.6, 0.55, 0.47)
+    g.rectangle("fill", 0, RAIL_Y - 14, 1280, 28)
+    g.setColor(0.53, 0.45, 0.36)
+    for x = -60, 1280, 60 do
+        g.rectangle("fill", x + sc % 60, RAIL_Y - 12, 20, 24, 2)
     end
     g.setColor(0.55, 0.55, 0.6)
     g.rectangle("fill", 0, RAIL_Y - 9, 1280, 6)

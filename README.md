@@ -120,6 +120,10 @@ hills with a village, a row of trees, then the meadow in perspective; the
 animals, kids and trees further up are smaller. When the train drives off,
 the engine stays on the left of the screen and the landscape goes by, the
 far layers slower (parallax).
+The scene's camera is `scene25.lua`. For kids who feel sick when the
+landscape moves, **Gentle motion** in the menu (Start, the snail) keeps the
+far hills and clouds still and drives at half speed on a shorter trip; it is
+remembered.
 
 ### Peekaboo! (Coucou !)
 

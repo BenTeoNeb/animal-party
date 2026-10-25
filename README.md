@@ -2,30 +2,28 @@
 
 *La Fête des Animaux !* in French. A counting game made with children for
 children (from about 5 years old), built on the same framework as
-[Lava Rescue!](../volcan) and reusing its drawings. 1 or 2 players, together.
+[Lava Rescue!](https://github.com/BenTeoNeb/lava-rescue) and reusing its drawin## What is here
 
-## What is already here
-
-Copied from `volcan/` (the two games now live their own lives):
-
-- **Engine**: controllers and keyboard for 1 or 2 players (`input.lua`), sound
-  effects and music made in code (`sfx.lua`, `synth.lua`, `musique.lua`),
-  French / English (`lang.lua`), the drawings and animations (`art.lua`), the
-  game log (`journal.lua`), the menu and the character select (`main.lua`).
-- **Art**: all of Lava Rescue's images (`images/`): Rami, Zina and Lila with
-  their animations, the animals and big mamas, trees (and burnt trees), huts
-  and houses, the pond and fish, the volcano, stones and forest props. The
-  style reference (`planches/reference.jpeg`) and `art.json` are kept so new
-  drawings made with the `game-art` skill match the old ones.
+- **Engine** (shared with Lava Rescue!, then on its own): controllers and
+  keyboard for 1 or 2 players (`input.lua`), sound effects and music made in
+  code (`sfx.lua`, `synth.lua`, `musique.lua`), French / English (`lang.lua`),
+  the drawings and animations (`art.lua`), the game log (`journal.lua`), the
+  menus and the character select (`main.lua`); the meadow, kids and animals
+  (`world.lua`, which is also the pens game).
+- **The games**: `train.lua`, `flash.lua` (Peekaboo), `path.lua`, `nid.lua`,
+  `oeufs.lua`, with the farm (`ferme.lua`) and the adaptive steps
+  (`progress.lua`).
+- **Art**: the images in `images/`: Rami, Zina and Lila with their animations,
+  the animals, trees, huts, the farm, the train, the hiding places... (the
+  art sources and image tools are kept in a separate, private repository).
 - **Fonts** (`fonts/`, SIL Open Font License, see the OFL files there):
   Andika, made by SIL for children learning to read, for every text and
   number; Fredoka (a bold instance of the variable font), for the titles and
-  names. Boxes and signs are wooden planks drawn in code (`art.panel`,
-  `art.paper`), and numbers on things are round tags (`art.disk`) with one
-  colour code: yellow to do, green right, red too many.
-- **Tools**: `outils/build.sh` (Mac, Windows, Linux / Bazzite, .love),
-  `outils/linux/` (installer), `outils/icone/` (draws the icon from the
-  game's images), and the image tools.
+  names.
+- **Tools**: `outils/build.sh` (Mac, Windows, Linux / Bazzite, .love) and
+  `outils/linux/` (the installer).
+
+images), and the image tools.
 
 ## The games
 
@@ -199,7 +197,7 @@ also the pens game); the train and Peekaboo add their own rules
 ## Play
 
 ```bash
-/Applications/love.app/Contents/MacOS/love fete     # macOS
-love fete                                           # Linux / Windows
-sh fete/outils/build.sh                             # -> dist/AnimalParty-*
+/Applications/love.app/Contents/MacOS/love .     # macOS
+love .                                           # Linux / Windows
+sh outils/build.sh                               # -> dist/AnimalParty-*
 ```

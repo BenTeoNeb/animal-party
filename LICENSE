@@ -1,4 +1,4 @@
-"Lava Rescue!" ("Sauve les Animaux !") — a game made with children for children
+"Animal Party!" ("La Fête des Animaux !") — a game made with children for children
 Copyright (c) 2026 Benjamin Farcy
 
 This repository has two parts, under two different licenses:
@@ -17,10 +17,12 @@ is reserved to the copyright holder.
 1. ASSETS — All rights reserved
 ===============================================================================
 
-Covers: everything in volcan/images/, volcan/planches/, volcan/videos/ and
-docs/ (illustrations, sprites, animations, sheets, videos, screenshots),
-and the game's title, characters and world ("Lava Rescue!", "Sauve les Animaux !",
-Rami, Zina, Lila and the animal characters).
+Covers: everything in images/ and docs/ (illustrations, sprites, animations, sheets, videos, screenshots),
+and the game's title, characters and world ("Animal Party!", "La Fête des Animaux !",
+"Lava Rescue!", Rami, Zina, Lila and the animal characters).
+
+Not covered: the fonts in fonts/ (Andika, Fredoka) are third-party fonts
+under the SIL Open Font License 1.1, see the OFL files next to them.
 
 Copyright (c) 2026 Benjamin Farcy. All rights reserved. Without prior written
 permission you may not copy, modify, publish, distribute, sell or reuse these
@@ -31,17 +33,16 @@ The first names, likenesses and personal identity of the children who appear
 in the game (Rami, Zina, Lila) may not be used for any purpose.
 
 What you MAY do: download this repository (or a ready-to-play version made by
-volcan/outils/build.sh), play the game, and share them free of charge,
+outils/build.sh), play the game, and share them free of charge,
 unchanged and with this file. The assets may only be used inside this game.
 
 ===============================================================================
 2. CODE — PolyForm Noncommercial License 1.0.0
 ===============================================================================
 
-Covers: every source and tool file of this repository — the *.lua files of
-volcan/ (including the procedural sound and music code), the
-tools in volcan/outils/, the skill in .claude/skills/, art.json and the
-documentation (README.md, GEMINI.md, prompts).
+Covers: every source and tool file of this repository — the *.lua files
+(including the procedural sound and music code), the tools in outils/ and
+the documentation (README.md).
 
 Required Notice: Copyright (c) 2026 Benjamin Farcy (https://github.com/BenTeoNeb)
 

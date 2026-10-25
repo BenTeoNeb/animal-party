@@ -37,15 +37,34 @@ local LOCO_X = 640             -- the engine's middle (set for each train, see n
 local HINT_AFTER = 10          -- seconds without finding the next one: it sparkles
 local BOARD_GAP = 0.45         -- seconds between two animals sitting down (time to count)
 
-train.START_X, train.START_Y = 640, 430
--- The three parts of the meadow (the rails take the bottom).
--- (the animals' feet stay 210 px below the top at least: their head and
--- number never go under the number board, the stars or the step ladder)
+train.START_X, train.START_Y = 640, 450
+-- The scene is in 2.5D, like a painted picture-book page: a sky, far hills
+-- with a village (images/train_loin.png), a row of trees (train_milieu.png),
+-- then the meadow in perspective down to the platform. Things further up the
+-- screen (further away) are drawn smaller (train.depth). When the train
+-- drives off, the landscape scrolls by, the far layers slower (parallax).
+local HORIZON = 230            -- where the meadow meets the trees
+local FAR_Y, NEAR_Y = 260, 600 -- depth: smallest at FAR_Y, full size at NEAR_Y
+local FAR_SCALE = 0.62
+-- The three parts of the meadow (the rails take the bottom); their feet stay
+-- below the trees on the horizon.
 train.ZONES = {
-    { x1 = 470, y1 = 160, x2 = 810, y2 = 330 },      -- top, below the number board
-    { x1 = 16, y1 = 160, x2 = 450, y2 = 520 },       -- left
-    { x1 = 830, y1 = 160, x2 = 1264, y2 = 520 },     -- right
+    { x1 = 470, y1 = 268, x2 = 810, y2 = 340 },      -- top, below the trees
+    { x1 = 16, y1 = 268, x2 = 450, y2 = 520 },       -- left
+    { x1 = 830, y1 = 268, x2 = 1264, y2 = 520 },     -- right
 }
+
+-- How big things are drawn at height y on the screen (1: near, smaller far).
+function train.depth(y)
+    local u = math.max(0, math.min(1, (y - FAR_Y) / (NEAR_Y - FAR_Y)))
+    return FAR_SCALE + (1 - FAR_SCALE) * u
+end
+
+-- How far things at height y have moved to the right while the train drives
+-- away (the camera follows the train: near things go by faster).
+function train.offset(y)
+    return (W.scroll or 0) * train.depth(y)
+end
 local SPREAD = 150             -- the numbered animals stand at least this far apart
 
 -- ctx: helpers from world.lua (newAnimal, biomeSpot, moveToward, popup,
@@ -88,6 +107,7 @@ function train.newRound(level)
     local seq, st = sequenceFor(level)
     W.trainClean = true
     W.seq, W.trainShift, W.hintT, W.boardNope, W.seatedAt = seq, 0, 0, 0, -9
+    W.scroll = 0
     W.drive = nil
     for _, k in ipairs(W.kids) do k.driving = nil end
     LOCO_X = 640 - (LOCO_W + #seq * WAGON_GAP) / 2 + LOCO_W / 2      -- the train in the middle
@@ -208,6 +228,8 @@ end
 local smoke = {}               -- the engine's puffs of smoke
 local DRIVE_WAIT = 6           -- seconds the full train waits for a driver
 local DRIVE_SPEED = 320        -- the train's top speed, pixels a second
+local CAMERA_LOCO_X = 250      -- where the engine stays while the landscape goes by
+local TRIP = 1700              -- how far it goes before the next train
 local CAB_NEAR = 120           -- how close to the engine a kid climbs in
 
 function train.party()
@@ -266,11 +288,17 @@ local function updateDrive(dt)
         want = -DRIVE_SPEED
     end
     d.speed = d.speed + (want - d.speed) * math.min(1, dt * 2)
-    W.trainShift = math.min(0, W.trainShift + d.speed * dt)
+    -- the train rolls to the left of the screen, then stays there and the
+    -- landscape goes by instead (the camera follows it)
+    local move = d.speed * dt
+    local room = (CAMERA_LOCO_X - LOCO_X) - W.trainShift       -- (negative: how far it can still go)
+    local roll = math.max(move, math.min(0, room))
+    W.trainShift = math.min(0, W.trainShift + roll)
+    W.scroll = (W.scroll or 0) - (move - roll)
     if d.speed < -20 and love.math.random() < dt * 12 then
         table.insert(smoke, { x = LOCO_X - 36 + W.trainShift, y = RAIL_Y - 128, r = 10, life = 1.2 })
     end
-    if wagonX(#W.seq) + WAGON_W < 0 then                     -- gone: the driver gets off
+    if W.scroll > TRIP then                                   -- far enough: the driver gets off
         d.gone = true
         if d.by then
             d.by.driving = nil
@@ -304,6 +332,68 @@ end
 
 -- Drawing ------------------------------------------------------------------------
 
+-- A landscape layer, repeated (every other copy mirrored, so the joins are
+-- seamless), its bottom at y, h tall, scrolled by dx.
+local function band(name, y, h, dx)
+    local im = art.image(name)
+    if not im then return end
+    local sc = h / im:getHeight()
+    local w = im:getWidth() * sc
+    local x = (dx % (2 * w)) - 2 * w
+    g.setColor(1, 1, 1)
+    local i = 0
+    while x < 1280 do
+        if i % 2 == 0 then g.draw(im, x, y - h, 0, sc, sc)
+        else g.draw(im, x + w, y - h, 0, -sc, sc) end
+        x, i = x + w, i + 1
+    end
+end
+
+-- The meadow's grass in perspective: thin strips, smaller further up, which
+-- go by at their own speed when the landscape scrolls.
+local quad
+local function perspectiveGrass()
+    local im = art.image("herbe")
+    if not im then
+        g.setColor(0.5, 0.75, 0.35)
+        g.rectangle("fill", 0, HORIZON, 1280, 720 - HORIZON)
+        return
+    end
+    im:setWrap("repeat", "repeat")
+    quad = quad or g.newQuad(0, 0, 1, 1, im:getDimensions())
+    local k = im:getWidth() / 380                  -- texture pixels per meadow pixel (at full size)
+    local v, STRIP = 0, 3
+    g.setColor(1, 1, 1)
+    for y = HORIZON - 4, 720, STRIP do
+        local u = math.max(0, math.min(1, (y - HORIZON) / (720 - HORIZON)))
+        local s = 0.3 + 0.7 * u ^ 0.85
+        local u0 = ((-640) / s + 640 - (W.scroll or 0)) * k
+        quad:setViewport(u0, v, 1280 / s * k, STRIP / s * k)
+        g.draw(im, quad, 0, y, 0, s / k, s / k)
+        v = v + STRIP / s * k
+    end
+end
+
+-- Before everything: the sky, the far hills, the meadow, the trees.
+function train.drawBack()
+    local sc = W.scroll or 0
+    for i = 0, 23 do                                          -- the sky
+        local u = i / 23
+        g.setColor(0.55 + 0.33 * u, 0.78 + 0.16 * u, 0.96 + 0.02 * u)
+        g.rectangle("fill", 0, i * HORIZON / 24, 1280, HORIZON / 24 + 1)
+    end
+    g.setColor(1, 1, 1, 0.85)                                 -- two soft clouds
+    for i, c in ipairs({ { 230, 70, 60 }, { 900, 50, 75 } }) do
+        local x = (c[1] + sc * 0.05) % 1500 - 110
+        g.ellipse("fill", x, c[2], c[3], c[3] * 0.35)
+        g.ellipse("fill", x + c[3] * 0.5, c[2] - 10, c[3] * 0.6, c[3] * 0.3)
+    end
+    band("train_loin", HORIZON + 8, 150, sc * 0.12)
+    perspectiveGrass()
+    band("train_milieu", HORIZON + 16, 92, sc * 0.35)
+    return true
+end
+
 local OUTLINE = { 0.23, 0.14, 0.09 }
 
 -- A filled shape with the thick dark-brown outline of the drawings.
@@ -333,6 +423,8 @@ end
 -- right above the rails) and the rails.
 function train.drawGround()
     local x1, x2 = train.platformX()
+    local sc = W.scroll or 0
+    x1, x2 = x1 + sc, x2 + sc                                  -- (left behind when the train goes)
     local w = x2 - x1
     g.setColor(0, 0, 0, 0.2)
     g.rectangle("fill", x1 + 4, PLATFORM_Y + 8, w, RAIL_Y - PLATFORM_Y - 4, 10)
@@ -345,9 +437,9 @@ function train.drawGround()
     g.rectangle("fill", x1 + 6, PLATFORM_EDGE - 12, w - 12, 7, 3)
     g.setColor(0.5, 0.33, 0.18)
     for x = x1 + 18, x2 - 18, 36 do g.rectangle("fill", x, PLATFORM_EDGE + 2, 18, 4, 2) end
-    for x = 0, 1280, 30 do      -- the sleepers, then the two rails
+    for x = -30, 1280, 30 do    -- the sleepers (going by), then the two rails
         g.setColor(0.5, 0.36, 0.22)
-        g.rectangle("fill", x, RAIL_Y - 12, 16, 24, 2)
+        g.rectangle("fill", x + sc % 30, RAIL_Y - 12, 16, 24, 2)
     end
     g.setColor(0.55, 0.55, 0.6)
     g.rectangle("fill", 0, RAIL_Y - 9, 1280, 6)
@@ -421,7 +513,8 @@ end
 -- next number to find sparkles when the kids have been looking for a while.
 function train.drawOnAnimal(a, shake)
     if not a.number or a.state == "board" then return end
-    local x, y = a.x + (shake or 0), a.y - art.height(a.kind) * 1.2 - 22
+    local d = train.depth(a.y)
+    local x, y = a.x + (shake or 0) + train.offset(a.y), a.y - art.height(a.kind) * 1.2 * d - 22 * d
     art.disk(a.number, x, y, 19, "plain", ctx.fonts.badge)
     -- (in the challenge: only after a mistake)
     if W.hintT > HINT_AFTER and (not W.challenge or not W.trainClean) and a.number == train.nextNumber()

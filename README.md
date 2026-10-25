@@ -117,6 +117,12 @@ time), and always below the counters at the top.
   just before and just after that are not in the train.
 - **Level 3**: count down to 1 (from 5 to 8), with bigger numbers as decoys.
 
+The train's meadow is drawn in 2.5D, like a picture-book page: a sky, far
+hills with a village, a row of trees, then the meadow in perspective; the
+animals, kids and trees further up are smaller. When the train drives off,
+the engine stays on the left of the screen and the landscape goes by, the
+far layers slower (parallax).
+
 ### Peekaboo! (Coucou !)
 
 Animals hop out of their hiding places (a berry bush, a flowery bush, a

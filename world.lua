@@ -1021,8 +1021,19 @@ local function outlined(text, font, x, y, w, color)
     g.printf(text, x, y, w, "center")
 end
 
+-- A game drawn in 2.5D (world.rules.depth / offset, the train): things
+-- further up the screen are smaller, and shift when its landscape scrolls.
+local function depth(y)
+    return world.rules and world.rules.depth and world.rules.depth(y) or 1
+end
+
+local function offset(y)
+    return world.rules and world.rules.offset and world.rules.offset(y) or 0
+end
+
 local function ground()
-    local grass = art.grass(world.W, world.H, world.scene and world.rules.GROUND_TILE or GRASS_TILE,
+    local back = world.rules and world.rules.drawBack and world.rules.drawBack()    -- its own backdrop
+    local grass = back or art.grass(world.W, world.H, world.scene and world.rules.GROUND_TILE or GRASS_TILE,
         world.scene and world.rules.GROUND)
     if not grass then
         g.setColor(0.5, 0.75, 0.35)
@@ -1033,9 +1044,10 @@ local function ground()
         local im = art.image("mare")
         local sc = POND_W / im:getWidth()
         g.setColor(1, 1, 1)
-        g.draw(im, p.x, p.y, 0, sc, sc, im:getWidth() / 2, im:getHeight() * 0.49)
+        sc = sc * depth(p.y)
+        g.draw(im, p.x + offset(p.y), p.y, 0, sc, sc, im:getWidth() / 2, im:getHeight() * 0.49)
     end
-    for _, p in ipairs(world.props) do art.prop(p.name, p.x, p.y, p.f, p.s) end
+    for _, p in ipairs(world.props) do art.prop(p.name, p.x + offset(p.y), p.y, p.f, p.s * depth(p.y)) end
 end
 
 -- The pen's sign: the number it wants and its animal. It turns green with a
@@ -1079,14 +1091,15 @@ end
 -- (a game may draw the kids bigger: world.rules.KID_SCALE, e.g. on the farm,
 -- so they are in proportion with the market stall)
 local function drawKid(k)
-    local s = world.rules and world.rules.KID_SCALE or 1.25
-    art.kid(k.look, k.x, k.y, k.facing, s, k.walk, k.anim, k.animT)
+    local s = (world.rules and world.rules.KID_SCALE or 1.25) * depth(k.y)
+    local x = k.x + offset(k.y)
+    art.kid(k.look, x, k.y, k.facing, s, k.walk, k.anim, k.animT)
     if world.turn == k.player then          -- its turn: a big star over its head
         local hop = math.abs(math.sin(world.time * 5)) * 8
-        art.star(k.x, k.y - 96 * s * k.look.size - 34 - hop, 16, true)
+        art.star(x, k.y - 96 * s * k.look.size - 34 - hop, 16, true)
     end
     if #world.kids > 1 then
-        outlined(T("player") .. k.player, fonts.small, k.x - 30, k.y - 96 * s * k.look.size, 60,
+        outlined(T("player") .. k.player, fonts.small, x - 30, k.y - 96 * s * k.look.size, 60,
             k.player == 1 and { 1, 0.75, 0.3 } or { 0.5, 0.8, 1 })
     end
 end
@@ -1094,7 +1107,7 @@ end
 local function drawAnimal(a)
     local shake = math.sin((a.nope or 0) * 40) * 5 * (a.nope or 0) / 0.6
     local hop = (a.hop or 0) > 0 and math.sin(a.hop / 0.4 * math.pi) * 16 or 0   -- a little jump (a.hop seconds)
-    art.animal(a.kind, a.x + shake, a.y - hop, a.facing, 1.2, true, a.anim, a.animT)
+    art.animal(a.kind, a.x + shake + offset(a.y), a.y - hop, a.facing, 1.2 * depth(a.y), true, a.anim, a.animT)
     if world.rules then world.rules.drawOnAnimal(a, shake) end
 end
 
@@ -1182,7 +1195,7 @@ function world.draw()
             o.draw()
         elseif o.tree then
             if (o.tree.see or 1) < 1 then art.tint = { 1, 1, 1, o.tree.see } end
-            art.tree(o.tree.x, o.tree.y, o.tree.s, false, o.tree.kind, o.tree.f)
+            art.tree(o.tree.x + offset(o.tree.y), o.tree.y, o.tree.s * depth(o.tree.y), false, o.tree.kind, o.tree.f)
             art.tint = nil
         elseif o.animal then
             drawAnimal(o.animal)

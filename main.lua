@@ -536,30 +536,31 @@ local function drawSelect()
     drawBackdrop("choose")
     local t = love.timer.getTime()
 
-    for i, k in ipairs(art.KIDS) do
-        local x = 220 + (i - 1) * 320 - 60
+    local n = #art.KIDS
+    for i, k in ipairs(art.KIDS) do             -- side by side, feet on one line (sizes show)
+        local x = 640 + (i - (n + 1) / 2) * 270
         for p = 1, 2 do
             local me = pick[p]
             if me.joined and me.choice == i then
                 local c = PLAYER_COLORS[p]
                 g.setColor(c[1], c[2], c[3], 0.3)
-                g.rectangle("fill", x - 110, 160, 220, 360, 24)
+                g.rectangle("fill", x - 120, 145, 240, 395, 24)
                 g.setColor(c)
                 g.setLineWidth(me.ready and 8 or 4)
-                g.rectangle("line", x - 110, 160, 220, 360, 24)
+                g.rectangle("line", x - 120, 145, 240, 395, 24)
             end
         end
         local bounce = 0
         for p = 1, 2 do
             if pick[p].joined and pick[p].choice == i then bounce = math.abs(math.sin(t * 5)) * 10 end
         end
-        art.kid(k, x, 460 - bounce, 1, 3.0, 0)
-        outlined(k.name, fonts.big, x - 110, 470, 220)
+        art.kid(k, x, 485 - bounce, 1, 2.55, 0)
+        outlined(k.name, fonts.big, x - 120, 490, 240)
 
         for p = 1, 2 do
             local me = pick[p]
             if me.joined and me.choice == i then
-                outlined(T("player") .. p .. (me.ready and "  " .. T("ready") or ""), fonts.mid, x - 110, 170, 220,
+                outlined(T("player") .. p .. (me.ready and "  " .. T("ready") or ""), fonts.mid, x - 120, 150, 240,
                     PLAYER_COLORS[p])
             end
         end

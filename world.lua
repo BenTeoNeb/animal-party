@@ -746,7 +746,8 @@ local function updateKid(k, dt)
     local speed = (leading and KID_WALK_SPEED or KID_SPEED) * k.look.speed
     k.x = clamp(k.x + dx * speed * dt, 20, world.W - 20)
     local top = math.max(TOP + 20, world.rules and world.rules.MIN_Y or 0)   -- (the train: not in the sky)
-    k.y = clamp(k.y + dy * speed * dt, top, world.H - 8)
+    local ySpeed = world.rules and world.rules.Y_SPEED or 1   -- (2.5D: walking away is slower)
+    k.y = clamp(k.y + dy * speed * ySpeed * dt, top, world.H - 8)
     -- footprints: the followers walk along this trail, in a neat line
     k.trail = k.trail or {}
     local last = k.trail[1]

@@ -43,9 +43,15 @@ train.START_X, train.START_Y = 640, 450
 -- then the meadow in perspective down to the platform. Things further up the
 -- screen (further away) are drawn smaller (train.depth). When the train
 -- drives off, the landscape scrolls by, the far layers slower (parallax).
+-- One camera for everything: the ground, the animals, the kids and the
+-- trees all follow train.depth (80 % at the horizon, full size at the
+-- bottom: a gentle perspective); the ground is also squashed from top to
+-- bottom (FORESHORTEN: it lies flat, seen at an angle), and moving up the
+-- screen (away) is slower than moving across (Y_SPEED).
 local HORIZON = 230            -- where the meadow meets the trees
-local FAR_Y, NEAR_Y = 260, 600 -- depth: smallest at FAR_Y, full size at NEAR_Y
-local FAR_SCALE = 0.62
+local FAR_SCALE = 0.8          -- how big things are at the horizon
+local FORESHORTEN = 0.55       -- the ground seen at an angle: squashed from top to bottom
+train.Y_SPEED = 0.6            -- walking up or down the screen, compared with across
 train.MIN_Y = HORIZON + 40     -- the kids' feet stay on the meadow (not in the trees or the sky)
 train.NO_POND = true           -- (the pond is drawn from above: not in this side view)
 -- The three parts of the meadow (the rails take the bottom); their feet stay
@@ -58,7 +64,7 @@ train.ZONES = {
 
 -- How big things are drawn at height y on the screen (1: near, smaller far).
 function train.depth(y)
-    local u = math.max(0, math.min(1, (y - FAR_Y) / (NEAR_Y - FAR_Y)))
+    local u = math.max(0, math.min(1, (y - HORIZON) / (720 - HORIZON)))
     return FAR_SCALE + (1 - FAR_SCALE) * u
 end
 
@@ -367,12 +373,18 @@ local function perspectiveGrass()
     local v, STRIP = 0, 3
     g.setColor(1, 1, 1)
     for y = HORIZON - 4, 720, STRIP do
-        local u = math.max(0, math.min(1, (y - HORIZON) / (720 - HORIZON)))
-        local s = 0.3 + 0.7 * u ^ 0.85
+        local s = train.depth(y)                   -- across: the same scale as the sprites
+        local sy = s * FORESHORTEN                 -- from top to bottom: squashed (lying flat)
         local u0 = ((-640) / s + 640 - (W.scroll or 0)) * k
-        quad:setViewport(u0, v, 1280 / s * k, STRIP / s * k)
-        g.draw(im, quad, 0, y, 0, s / k, s / k)
-        v = v + STRIP / s * k
+        quad:setViewport(u0, v, 1280 / s * k, STRIP / sy * k)
+        g.draw(im, quad, 0, y, 0, s / k, sy / k)
+        v = v + STRIP / sy * k
+    end
+    -- a light haze far away, just before the trees (it helps the eye read
+    -- the meadow as going away, not up)
+    for i = 0, 19 do
+        g.setColor(0.86, 0.93, 0.98, 0.42 * (1 - i / 20))
+        g.rectangle("fill", 0, HORIZON - 4 + i * 6, 1280, 6)
     end
 end
 
@@ -415,30 +427,43 @@ end
 
 -- A lamp post at the end of the platform.
 local function lamp(x, y)
+    g.setColor(0, 0, 0, 0.2)
+    g.ellipse("fill", x + 3, y + 1, 12, 4)
+    shape("rectangle", { 0.3, 0.27, 0.27 }, x - 9, y - 6, 18, 8, 3)       -- its foot
     shape("rectangle", { 0.3, 0.27, 0.27 }, x - 4, y - 92, 8, 92, 3)
     shape("rectangle", { 0.3, 0.27, 0.27 }, x - 14, y - 104, 28, 14, 4)
     shape("rectangle", { 1, 0.9, 0.55 }, x - 10, y - 122, 20, 20, 5)
     shape("polygon", { 0.3, 0.27, 0.27 }, x - 16, y - 120, x + 16, y - 120, x, y - 134)
 end
 
--- The platform (a raised wooden floor with a light edge and a darker front,
--- right above the rails) and the rails.
+-- The platform: a wooden floor lying on the ground, seen at an angle (its
+-- far edge a little narrower, boards running across, like the meadow), with
+-- a thick front curb above the rails, and two lamp posts standing on it.
+-- Then the sleepers (going by when the train drives) and the two rails.
+local CURB = 18                -- the front curb's height
 function train.drawGround()
     local x1, x2 = train.platformX()
     local sc = W.scroll or 0
     x1, x2 = x1 + sc, x2 + sc                                  -- (left behind when the train goes)
-    local w = x2 - x1
-    g.setColor(0, 0, 0, 0.2)
-    g.rectangle("fill", x1 + 4, PLATFORM_Y + 8, w, RAIL_Y - PLATFORM_Y - 4, 10)
-    shape("rectangle", { 0.6, 0.42, 0.25 }, x1, PLATFORM_EDGE - 6, w, RAIL_Y - 12 - PLATFORM_EDGE + 6, 6)   -- front
-    shape("rectangle", { 0.88, 0.74, 0.52 }, x1, PLATFORM_Y, w, PLATFORM_EDGE - PLATFORM_Y, 10)            -- top
-    g.setColor(0.72, 0.56, 0.36)
+    local top, front = PLATFORM_Y, PLATFORM_EDGE               -- far edge, near edge of the floor
+    local inset = (x2 - x1) * (1 - train.depth(top) / train.depth(front)) / 2
+    local fx1, fx2 = x1 + inset, x2 - inset                    -- the far edge, a little narrower
+    g.setColor(0, 0, 0, 0.18)                                  -- its shadow on the grass
+    g.polygon("fill", fx1 - 6, top + 6, fx2 + 6, top + 6, x2 + 8, front + CURB + 4, x1 - 8, front + CURB + 4)
+    shape("polygon", { 0.88, 0.74, 0.52 }, fx1, top, fx2, top, x2, front, x1, front)   -- the floor
+    g.setColor(0.74, 0.58, 0.38)                               -- boards across, closer together far away
     g.setLineWidth(2)
-    for x = x1 + 44, x2 - 10, 44 do g.line(x, PLATFORM_Y + 6, x, PLATFORM_EDGE - 14) end
-    g.setColor(1, 0.86, 0.35)                                     -- the edge
-    g.rectangle("fill", x1 + 6, PLATFORM_EDGE - 12, w - 12, 7, 3)
-    g.setColor(0.5, 0.33, 0.18)
-    for x = x1 + 18, x2 - 18, 36 do g.rectangle("fill", x, PLATFORM_EDGE + 2, 18, 4, 2) end
+    for i = 1, 5 do
+        local u = (i / 6) ^ 1.25
+        local y = top + (front - top) * u
+        local a, b = fx1 + (x1 - fx1) * u, fx2 + (x2 - fx2) * u
+        g.line(a + 4, y, b - 4, y)
+    end
+    g.setColor(1, 0.86, 0.35)                                  -- the yellow safety line, near the edge
+    g.rectangle("fill", x1 + 8, front - 9, x2 - x1 - 16, 5, 2)
+    shape("rectangle", { 0.6, 0.42, 0.25 }, x1, front, x2 - x1, CURB, 4)                -- the front curb
+    g.setColor(0.48, 0.32, 0.18)
+    for x = x1 + 24, x2 - 24, 48 do g.rectangle("fill", x, front + 4, 4, CURB - 8, 1) end
     for x = -30, 1280, 30 do    -- the sleepers (going by), then the two rails
         g.setColor(0.5, 0.36, 0.22)
         g.rectangle("fill", x + sc % 30, RAIL_Y - 12, 16, 24, 2)
@@ -446,8 +471,8 @@ function train.drawGround()
     g.setColor(0.55, 0.55, 0.6)
     g.rectangle("fill", 0, RAIL_Y - 9, 1280, 6)
     g.rectangle("fill", 0, RAIL_Y + 4, 1280, 6)
-    lamp(x1 + 16, PLATFORM_Y + 20)
-    lamp(x2 - 16, PLATFORM_Y + 20)
+    lamp(fx1 + 24, top + 10)                                   -- the lamps, on the floor's far corners
+    lamp(fx2 - 24, top + 10)
 end
 
 -- Draw an image w wide, the bottom of its wheels at (x, RAIL_Y); flip = -1 to

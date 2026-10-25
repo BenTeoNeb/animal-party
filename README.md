@@ -93,7 +93,11 @@ number. The engine and the four wagon colours are drawings (game-art). Only the 
 another one shakes its head. A board at the top shows the train's numbers
 (yellow: following, green: in the train, the next one pulses); after 10
 seconds without finding it, the next animal sparkles. When everyone is in,
-the train whistles and leaves.
+the train whistles and waits, its engine sparkling: walk up to it to climb
+into the cab and drive it away (left on the stick goes, right brakes, the
+bottom button whistles); if nobody comes, it leaves by itself. The numbered
+animals each stand on their own spot, far apart (only one in reach at a
+time), and always below the counters at the top.
 
 - **Level 1**: 1 to 3, 4 or 5.
 - **Level 2**: five numbers starting from 2 to 5 (4 5 6 7 8), with a number

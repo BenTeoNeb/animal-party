@@ -26,6 +26,8 @@ local T = lang.t
 --   newRound(level), grab(k, best, fresh), drop(k) (optional), arrive(k), updateAnimal(a, dt),
 --   update(dt), done(), party(), hidden(a), things(list), drawGround(),
 --   drawOnAnimal(a, shake), drawHud()
+--   partyMove, busy(), partyAction(k, action) (optional): the kids may walk
+--   during the party, which lasts while busy() (the train driving away)
 local progress = require("progress")
 local MODES = { train = require("train"), flash = require("flash"), path = require("path"),
     nid = require("nid"), oeufs = require("oeufs") }
@@ -642,7 +644,11 @@ local function letGo(k)
 end
 
 function world.action(p, action)
-    if world.phase ~= "play" then return end
+    if world.phase ~= "play" then
+        local R = world.rules
+        if world.phase == "party" and R and R.partyAction and kidOf(p) then R.partyAction(kidOf(p), action) end
+        return
+    end
     local k = kidOf(p)
     if not k then return end
     if action == "grab" then
@@ -722,7 +728,8 @@ local function updateKid(k, dt)
         k.dropWait = DROP_REPEAT
     end
     local dx, dy = input.move(k.player)
-    if world.phase ~= "play" then dx, dy = 0, 0 end
+    local partyMove = world.phase == "party" and world.rules and world.rules.partyMove
+    if (world.phase ~= "play" and not partyMove) or k.driving then dx, dy = 0, 0 end
     -- sent somewhere by the game (k.autoTo = { x, y }): walk there by itself
     if k.autoTo then
         local ax, ay = k.autoTo[1] - k.x, k.autoTo[2] - k.y
@@ -836,7 +843,11 @@ local function updateAnimal(a, dt)
     a.nope = math.max(0, (a.nope or 0) - dt)
     if a.state == "free" then
         local z = world.home[a.kind]
-        wander(a, dt, z.x1 + 30, z.x2 - 30, z.y1 + 50, z.y2 - 20, 40)
+        if a.spotX then                   -- an animal with its own spot (the train's): stays near it
+            wander(a, dt, a.spotX - 22, a.spotX + 22, a.spotY - 12, a.spotY + 12, 30)
+        else
+            wander(a, dt, z.x1 + 30, z.x2 - 30, z.y1 + 50, z.y2 - 20, 40)
+        end
         blockByTrees(a)
         blockByPond(a)
     elseif a.state == "follow" then
@@ -973,9 +984,10 @@ function world.update(dt)
     elseif world.phase == "party" then
         world.partyTime = world.partyTime + dt
         for _, k in ipairs(world.kids) do
-            if k.cheer <= 0.2 then k.cheer = 1.5 end         -- keep jumping for joy
+            if k.cheer <= 0.2 and not world.rules then k.cheer = 1.5 end   -- keep jumping for joy
         end
-        if world.partyTime > 3.5 then
+        local busy = world.rules and world.rules.busy and world.rules.busy()
+        if world.partyTime > 3.5 and not busy then
             world.fade = math.min(1, world.fade + dt * 2.5)
             if world.fade >= 1 then
                 for _, k in ipairs(world.kids) do k.cheer = 0 end
@@ -1138,7 +1150,9 @@ function world.draw()
     for _, a in ipairs(world.animals) do
         if not (world.rules and world.rules.hidden(a)) then table.insert(things, { y = a.y, animal = a }) end
     end
-    for _, k in ipairs(world.kids) do table.insert(things, { y = k.y, kid = k }) end
+    for _, k in ipairs(world.kids) do
+        if not k.driving then table.insert(things, { y = k.y, kid = k }) end
+    end
     if world.rules then world.rules.things(things) end
     table.sort(things, function(a, b) return a.y < b.y end)
     for _, o in ipairs(things) do

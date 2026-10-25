@@ -6,11 +6,16 @@
 --   2  count up from another number (five numbers from 2 to 5), with a
 --      couple of numbers around them that are not in the train
 --   3  count down to 1 (from 5 to 8), and the train leaves: "3, 2, 1, go!"
+-- When the train is full it waits and its engine sparkles: a kid who walks
+-- up to it climbs into the cab and drives it away (left on the stick goes,
+-- right slows down, the bottom button whistles). If nobody comes, it leaves
+-- by itself after a moment.
 -- world.lua calls the hooks below at the right moments (see MODES there).
 
 local art = require("art")
 local sfx = require("sfx")
 local lang = require("lang")
+local input = require("input")
 
 local train = {}
 local W, ctx
@@ -34,11 +39,14 @@ local BOARD_GAP = 0.45         -- seconds between two animals sitting down (time
 
 train.START_X, train.START_Y = 640, 430
 -- The three parts of the meadow (the rails take the bottom).
+-- (the animals' feet stay 210 px below the top at least: their head and
+-- number never go under the number board, the stars or the step ladder)
 train.ZONES = {
-    { x1 = 470, y1 = 96, x2 = 810, y2 = 280 },       -- top, below the number board
-    { x1 = 16, y1 = 24, x2 = 450, y2 = 520 },        -- left
-    { x1 = 830, y1 = 24, x2 = 1264, y2 = 520 },      -- right
+    { x1 = 470, y1 = 160, x2 = 810, y2 = 330 },      -- top, below the number board
+    { x1 = 16, y1 = 160, x2 = 450, y2 = 520 },       -- left
+    { x1 = 830, y1 = 160, x2 = 1264, y2 = 520 },     -- right
 }
+local SPREAD = 150             -- the numbered animals stand at least this far apart
 
 -- ctx: helpers from world.lua (newAnimal, biomeSpot, moveToward, popup,
 -- hearts, stars, outlined, fonts, journal, KINDS, shuffle, rand).
@@ -80,6 +88,8 @@ function train.newRound(level)
     local seq, st = sequenceFor(level)
     W.trainClean = true
     W.seq, W.trainShift, W.hintT, W.boardNope, W.seatedAt = seq, 0, 0, 0, -9
+    W.drive = nil
+    for _, k in ipairs(W.kids) do k.driving = nil end
     LOCO_X = 640 - (LOCO_W + #seq * WAGON_GAP) / 2 + LOCO_W / 2      -- the train in the middle
     local numbers = { unpack(seq) }
     -- decoys: numbers just around the train's, that are not in it
@@ -91,10 +101,21 @@ function train.newRound(level)
         if #numbers == #seq + 1 then table.insert(numbers, seq[#seq] + 2 * by > 0 and seq[#seq] + 2 * by or seq[1] - 2 * by) end
     end
     local kinds = ctx.shuffle({ unpack(ctx.KINDS) })
+    -- each one on its own spot, as far as possible from the others (so only
+    -- one is in reach at a time); it only moves a little around it
     for i, n in ipairs(numbers) do
         local a = ctx.newAnimal(kinds[(i - 1) % #kinds + 1])
         a.number = n
-        ctx.biomeSpot(a)
+        local bx, by, bd = nil, nil, -1
+        for _ = 1, 30 do
+            ctx.biomeSpot(a)
+            local d = math.huge
+            for _, b in ipairs(W.animals) do d = math.min(d, ctx.dist(a, b)) end
+            if d > bd then bx, by, bd = a.x, a.y, d end
+            if d >= SPREAD then break end
+        end
+        a.x, a.y, a.tx, a.ty = bx, by, bx, by
+        a.spotX, a.spotY = bx, by
         table.insert(W.animals, a)
     end
     ctx.journal.log("manche", { niveau = level, train = seq })
@@ -184,13 +205,80 @@ function train.done()
     return true
 end
 
+local smoke = {}               -- the engine's puffs of smoke
+local DRIVE_WAIT = 6           -- seconds the full train waits for a driver
+local DRIVE_SPEED = 320        -- the train's top speed, pixels a second
+local CAB_NEAR = 120           -- how close to the engine a kid climbs in
+
 function train.party()
     ctx.answer(W.trainClean)
     sfx.play("toot")
     ctx.stars(wagonX(1), RAIL_Y - 90, 14)
+    W.drive = { wait = 0, speed = 0, near = {} }
+    for _, k in ipairs(W.kids) do                  -- (already next to it: not by accident)
+        W.drive.near[k] = math.abs(k.x - LOCO_X) < CAB_NEAR * 0.7 and k.y > PLATFORM_Y - 40
+    end
 end
 
-local smoke = {}
+train.partyMove = true         -- the kids may walk up to the engine
+function train.busy()          -- the party lasts until the train has left
+    return W.drive and not W.drive.gone
+end
+
+local function climbIn(k)
+    local d = W.drive
+    d.by, k.driving = k, true
+    k.followers = {}
+    sfx.play("toot")
+    ctx.journal.log("conduit", { joueur = k.player })
+end
+
+-- The bottom button: in the cab, the whistle; next to the engine, climb in.
+function train.partyAction(k, action)
+    local d = W.drive
+    if not d or d.gone or action ~= "grab" then return end
+    if d.by == k then
+        sfx.play("toot")
+    elseif not d.by and math.abs(k.x - LOCO_X) < CAB_NEAR and k.y > PLATFORM_Y - 60 then
+        climbIn(k)
+    end
+end
+
+-- The full train: waiting for a driver, driven, or leaving by itself; when
+-- the whole train is off the screen, the driver gets off at the start.
+local function updateDrive(dt)
+    local d = W.drive
+    if not d or d.gone then return end
+    if not d.by and not d.auto then
+        d.wait = d.wait + dt
+        for _, k in ipairs(W.kids) do              -- walking up to the engine: climb in
+            local near = math.abs(k.x - LOCO_X - W.trainShift) < CAB_NEAR * 0.7 and k.y > PLATFORM_Y - 40
+            if near and not d.near[k] and not d.by then climbIn(k) end
+            d.near[k] = near
+        end
+        if not d.by and d.wait > DRIVE_WAIT then d.auto = true end
+    end
+    local want = 0
+    if d.by then
+        local dx = input.move(d.by.player)
+        want = dx < -0.2 and -DRIVE_SPEED or dx > 0.2 and 0 or d.speed * 0.98   -- left goes, right brakes
+    elseif d.auto then
+        want = -DRIVE_SPEED
+    end
+    d.speed = d.speed + (want - d.speed) * math.min(1, dt * 2)
+    W.trainShift = math.min(0, W.trainShift + d.speed * dt)
+    if d.speed < -20 and love.math.random() < dt * 12 then
+        table.insert(smoke, { x = LOCO_X - 36 + W.trainShift, y = RAIL_Y - 128, r = 10, life = 1.2 })
+    end
+    if wagonX(#W.seq) + WAGON_W < 0 then                     -- gone: the driver gets off
+        d.gone = true
+        if d.by then
+            d.by.driving = nil
+            d.by.x, d.by.y = train.START_X, train.START_Y
+        end
+    end
+end
+
 function train.update(dt)
     W.boardNope = math.max(0, W.boardNope - dt)
     if W.phase == "play" then
@@ -199,12 +287,8 @@ function train.update(dt)
         if before < HINT_AFTER and W.hintT >= HINT_AFTER and not W.challenge then
             ctx.journal.log("aide", { numero = train.nextNumber() })
         end
-    elseif W.phase == "party" and W.partyTime > 1 then
-        -- the train leaves (to the left), puffing
-        W.trainShift = W.trainShift - dt * math.min(320, (W.partyTime - 1) * 260)
-        if love.math.random() < dt * 12 then
-            table.insert(smoke, { x = LOCO_X - 36 + W.trainShift, y = RAIL_Y - 128, r = 10, life = 1.2 })
-        end
+    elseif W.phase == "party" then
+        updateDrive(dt)
     end
     for i = #smoke, 1, -1 do
         local p = smoke[i]
@@ -287,7 +371,17 @@ local function onRails(name, x, w, flip)
 end
 
 local function drawLoco()
-    onRails("train_loco", LOCO_X + W.trainShift, LOCO_W, -1)
+    local d = W.drive
+    local x = LOCO_X + W.trainShift
+    if d and d.by and not d.gone then                          -- the driver, in the cab
+        art.kid(d.by.look, x + 38, RAIL_Y - 92, -1, 0.95, 0, "repos", W.time)
+    end
+    onRails("train_loco", x, LOCO_W, -1)
+    if d and not d.by and not d.auto and not d.gone then       -- come and drive!
+        local t = W.time * 5
+        art.star(x + 30, RAIL_Y - 150 - math.abs(math.sin(t)) * 10, 12, true)
+        art.star(x - 10, RAIL_Y - 140 - math.abs(math.cos(t)) * 10, 9, true)
+    end
     for _, p in ipairs(smoke) do
         g.setColor(0.95, 0.95, 0.95, p.life * 0.7)
         g.circle("fill", p.x, p.y, p.r)

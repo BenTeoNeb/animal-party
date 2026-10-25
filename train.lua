@@ -51,7 +51,8 @@ train.START_X, train.START_Y = 640, 450
 local HORIZON = 230            -- where the meadow meets the trees
 local FAR_SCALE = 0.8          -- how big things are at the horizon
 local FORESHORTEN = 0.55       -- the ground seen at an angle: squashed from top to bottom
-train.Y_SPEED = 0.6            -- walking up or down the screen, compared with across
+train.Y_SPEED = FORESHORTEN    -- walking up or down the screen, compared with across (the
+                               -- ground's squash; and further away, slower: world.lua)
 train.MIN_Y = HORIZON + 40     -- the kids' feet stay on the meadow (not in the trees or the sky)
 train.NO_POND = true           -- (the pond is drawn from above: not in this side view)
 -- The three parts of the meadow (the rails take the bottom); their feet stay
@@ -235,7 +236,11 @@ end
 
 local smoke = {}               -- the engine's puffs of smoke
 local DRIVE_WAIT = 6           -- seconds the full train waits for a driver
-local DRIVE_SPEED = 320        -- the train's top speed, pixels a second
+-- Driving, gently (6-9 year olds are the most prone to motion sickness): the
+-- speed changes by at most DRIVE_ACCEL a second (no jolt), up to DRIVE_SPEED,
+-- and the train brakes to a stop at the end of the trip before the fade.
+local DRIVE_SPEED = 280        -- the train's top speed, pixels a second
+local DRIVE_ACCEL = 150        -- pixels a second, per second (about 2 s to full speed)
 local CAMERA_LOCO_X = 250      -- where the engine stays while the landscape goes by
 local TRIP = 1700              -- how far it goes before the next train
 local CAB_NEAR = 120           -- how close to the engine a kid climbs in
@@ -291,11 +296,16 @@ local function updateDrive(dt)
     local want = 0
     if d.by then
         local dx = input.move(d.by.player)
-        want = dx < -0.2 and -DRIVE_SPEED or dx > 0.2 and 0 or d.speed * 0.98   -- left goes, right brakes
+        want = dx < -0.2 and -DRIVE_SPEED or dx > 0.2 and 0 or d.speed       -- left goes, right brakes
     elseif d.auto then
         want = -DRIVE_SPEED
     end
-    d.speed = d.speed + (want - d.speed) * math.min(1, dt * 2)
+    -- near the end of the trip: brake, so it stops before the fade
+    local left = TRIP - (W.scroll or 0)
+    local braking = d.speed * d.speed / (2 * DRIVE_ACCEL)
+    if (W.scroll or 0) > 0 and left <= braking + 4 then want = 0 end
+    local step = DRIVE_ACCEL * dt
+    d.speed = d.speed + math.max(-step, math.min(step, want - d.speed))
     -- the train rolls to the left of the screen, then stays there and the
     -- landscape goes by instead (the camera follows it)
     local move = d.speed * dt
@@ -306,7 +316,7 @@ local function updateDrive(dt)
     if d.speed < -20 and love.math.random() < dt * 12 then
         table.insert(smoke, { x = LOCO_X - 36 + W.trainShift, y = RAIL_Y - 128, r = 10, life = 1.2 })
     end
-    if W.scroll > TRIP then                                   -- far enough: the driver gets off
+    if W.scroll > TRIP - braking - 4 and math.abs(d.speed) < 5 then   -- stopped there: the driver gets off
         d.gone = true
         if d.by then
             d.by.driving = nil
@@ -404,7 +414,9 @@ function train.drawBack()
     end
     band("train_loin", HORIZON + 8, 150, sc * 0.12)
     perspectiveGrass()
-    band("train_milieu", HORIZON + 16, 92, sc * 0.35)
+    -- the trees stand on the meadow's far edge: they go by with the grass
+    -- there (not slower: they would slide over their own ground)
+    band("train_milieu", HORIZON + 16, 92, sc * train.depth(HORIZON + 16))
     return true
 end
 

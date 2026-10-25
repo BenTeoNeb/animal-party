@@ -237,8 +237,9 @@ end
 local smoke = {}               -- the engine's puffs of smoke
 local DRIVE_WAIT = 6           -- seconds the full train waits for a driver
 -- Driving, gently (6-9 year olds are the most prone to motion sickness): the
--- speed changes by at most DRIVE_ACCEL a second (no jolt), up to DRIVE_SPEED,
--- and the train brakes to a stop at the end of the trip before the fade.
+-- speed changes by at most DRIVE_ACCEL a second (no jolt), up to DRIVE_SPEED.
+-- At the end of the trip the landscape stops and the train rolls on, off the
+-- left of the screen, before the fade.
 local DRIVE_SPEED = 280        -- the train's top speed, pixels a second
 local DRIVE_ACCEL = 150        -- pixels a second, per second (about 2 s to full speed)
 local CAMERA_LOCO_X = 250      -- where the engine stays while the landscape goes by
@@ -300,23 +301,22 @@ local function updateDrive(dt)
     elseif d.auto then
         want = -DRIVE_SPEED
     end
-    -- near the end of the trip: brake, so it stops before the fade
-    local left = TRIP - (W.scroll or 0)
-    local braking = d.speed * d.speed / (2 * DRIVE_ACCEL)
-    if (W.scroll or 0) > 0 and left <= braking + 4 then want = 0 end
+    if (W.scroll or 0) >= TRIP then want = -DRIVE_SPEED end   -- the end: it goes, whatever the stick
     local step = DRIVE_ACCEL * dt
     d.speed = d.speed + math.max(-step, math.min(step, want - d.speed))
     -- the train rolls to the left of the screen, then stays there and the
-    -- landscape goes by instead (the camera follows it)
+    -- landscape goes by instead (the camera follows it); at the end of the
+    -- trip, the landscape stops and the train rolls on, off the screen
     local move = d.speed * dt
     local room = (CAMERA_LOCO_X - LOCO_X) - W.trainShift       -- (negative: how far it can still go)
     local roll = math.max(move, math.min(0, room))
+    if (W.scroll or 0) >= TRIP then roll = move end
     W.trainShift = math.min(0, W.trainShift + roll)
     W.scroll = (W.scroll or 0) - (move - roll)
     if d.speed < -20 and love.math.random() < dt * 12 then
         table.insert(smoke, { x = LOCO_X - 36 + W.trainShift, y = RAIL_Y - 128, r = 10, life = 1.2 })
     end
-    if W.scroll > TRIP - braking - 4 and math.abs(d.speed) < 5 then   -- stopped there: the driver gets off
+    if wagonX(#W.seq) + WAGON_W < 0 then                     -- off the screen: the driver gets off
         d.gone = true
         if d.by then
             d.by.driving = nil

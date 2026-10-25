@@ -39,7 +39,6 @@ world.W, world.H = 1280, 720
 
 -- Tweak these to make the game easier or harder.
 local KID_SPEED = 230         -- running, arms free
-local KID_WALK_SPEED = 185    -- walking, when animals are following you
 -- The pens' ladder of steps (adaptive difficulty, see progress.lua): what the
 -- pens ask for. count: empty pens, 1 to max; add: some already in, up to max;
 -- take: too many in some pens; spare: animals more than needed, per pen.
@@ -741,9 +740,8 @@ local function updateKid(k, dt)
     end
     local len = math.sqrt(dx * dx + dy * dy)
     if len > 1 then dx, dy = dx / len, dy / len end
-    local leading = #k.followers > 0
     local px, py = k.x, k.y
-    local speed = (leading and KID_WALK_SPEED or KID_SPEED) * k.look.speed
+    local speed = KID_SPEED * k.look.speed       -- (the kids run even with animals following)
     local far = world.rules and world.rules.depth and world.rules.depth(k.y) or 1
     k.x = clamp(k.x + dx * speed * far * dt, 20, world.W - 20)
     local top = math.max(TOP + 20, world.rules and world.rules.MIN_Y or 0)   -- (the train: not in the sky)
@@ -768,7 +766,7 @@ local function updateKid(k, dt)
         k.walk = 0
     end
     if k.cheer > 0 then setAnim(k, "saut")
-    elseif len > 0.1 then setAnim(k, leading and "marche" or "course")
+    elseif len > 0.1 then setAnim(k, "course")
     else setAnim(k, "repos") end
 
     if world.rules then

@@ -129,6 +129,40 @@ function oeufs.grab() end                     -- (picking up is just walking on 
 
 -- The right button: put one egg down. With no loose egg, it opens a box
 -- first (breaking a ten): one egg down, 9 loose ones carried.
+-- The stall is solid (nobody walks behind or under it): its feet area, from
+-- the top of the awning down to the bottom of the screen.
+local function stallRect()
+    local im = art.image("etal")
+    local w = im and CART_H * im:getWidth() / im:getHeight() or CART_H
+    return CART_X - w / 2 + 10, CART_Y - CART_H + 20, 1280, 720
+end
+
+local function inStall(x, y, margin)
+    local x1, y1 = stallRect()
+    margin = margin or 0
+    return x > x1 - margin and y > y1 - margin
+end
+
+-- A free spot for an egg put down by kid k: around them (the nearest free one
+-- in rings), not on another egg or box, not in the stall, on the screen.
+local DROP_GAP = 50
+local function dropSpot(k)
+    for ring = 1, 4 do
+        local n = ring * 6
+        for i = 0, n - 1 do
+            local a = (i / n) * math.pi * 2 + (ring % 2) * 0.4
+            local x = k.x + math.cos(a) * DROP_GAP * ring
+            local y = k.y + 10 + math.sin(a) * DROP_GAP * ring * 0.6
+            local ok = x > 30 and x < 1250 and y > 190 and y < 700 and not inStall(x, y, 30)
+            for _, it in ipairs(S.items) do
+                if math.abs(it.x - x) < DROP_GAP * 0.8 and math.abs(it.y - y) < DROP_GAP * 0.55 then ok = false end
+            end
+            if ok then return x, y end
+        end
+    end
+    return k.x + 30 * k.facing, k.y + 4
+end
+
 function oeufs.drop(k)
     if S.phase ~= "play" then return end
     if (k.eggs or 0) == 0 then
@@ -137,7 +171,8 @@ function oeufs.drop(k)
         sfx.play("clac")
     end
     k.eggs = k.eggs - 1
-    table.insert(S.items, { kind = "egg", x = k.x + 30 * k.facing, y = k.y + 4, wait = 1, owner = k })
+    local x, y = dropSpot(k)
+    table.insert(S.items, { kind = "egg", x = x, y = y, wait = 1, owner = k })
     sfx.play("drop")
 end
 
@@ -159,6 +194,11 @@ end
 -- reach the cart.
 function oeufs.arrive(k)
     k.eggs, k.boxes = k.eggs or 0, k.boxes or 0
+    -- out of the stall: pushed to its left side or above it, whichever is nearer
+    local x1, y1 = stallRect()
+    if inStall(k.x, k.y) then
+        if k.x - x1 < k.y - y1 then k.x = x1 else k.y = y1 end
+    end
     if S.phase ~= "play" then return end
     for i = #S.items, 1, -1 do
         local it = S.items[i]
@@ -180,7 +220,7 @@ function oeufs.arrive(k)
             end
         end
     end
-    local atCart = math.abs(k.x - CART_X) < 210 and k.y > CART_Y - 150
+    local atCart = inStall(k.x, k.y, 16)                    -- touching its side or its top
     if atCart and not k.atCart and (k.boxes > 0 or k.eggs > 0) then deliver(k) end
     k.atCart = atCart
 end
